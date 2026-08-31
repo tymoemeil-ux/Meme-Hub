@@ -23,8 +23,9 @@ z silnikiem gry w pojedynczym swiecie**.
 # wrzuc go do folderu mods/ instalacji Fabric 26.2
 ```
 
-Build odbywa sie rowniez automatycznie w **GitHub Actions** - gotowy jar
-mozna pobrac z zakladki "Actions" (artefakt `meme-hub-jar`).
+Gotowy plik CI (`.github/workflows/build.yml` - Java 25 + `./gradlew build`
++ artefakt `meme-hub-jar`) jest dolaczony do projektu - wgraj go na repo,
+aby build wykonywal sie automatycznie w **GitHub Actions**.
 
 ## Struktura projektu
 
