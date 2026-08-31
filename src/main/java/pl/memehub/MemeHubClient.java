@@ -1,0 +1,33 @@
+package pl.memehub;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.minecraft.resources.Identifier;
+import pl.memehub.config.Config;
+import pl.memehub.core.ModuleManager;
+import pl.memehub.event.EventBus;
+import pl.memehub.event.HudRenderEvent;
+
+/**
+ * Glowny punkt wejscia moda (entrypoint "client" z fabric.mod.json).
+ *
+ * <p>Inicjalizuje ModuleManager, wczytuje konfiguracje i rejestruje element HUD
+ * przez Fabric API (HudElementRegistry) - kazda klatka renderowania HUD wysyla
+ * {@link HudRenderEvent} na wlasny event bus moda.
+ */
+public final class MemeHubClient implements ClientModInitializer {
+
+	@Override
+	public void onInitializeClient() {
+		ModuleManager.INSTANCE.init();
+		Config.INSTANCE.load();
+
+		// Wlasny element HUD - wysyla zdarzenie renderowania HUD na event bus moda.
+		HudElementRegistry.attachElementBefore(
+				VanillaHudElements.CHAT,
+				Identifier.fromNamespaceAndPath(MemeHub.MOD_ID, "hud"),
+				(graphics, deltaTracker) -> EventBus.INSTANCE.post(new HudRenderEvent(graphics, deltaTracker))
+		);
+	}
+}
