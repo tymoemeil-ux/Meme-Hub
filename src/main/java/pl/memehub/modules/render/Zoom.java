@@ -23,7 +23,7 @@ public final class Zoom extends Module {
 		var mc = mc();
 		if (mc.options != null) {
 			oldFov = mc.options.fov().get();
-			mc.options.fov().set(fov.get());
+			mc.options.fov().set((int) fov.get());
 		}
 	}
 
@@ -31,7 +31,7 @@ public final class Zoom extends Module {
 	protected void onDisable() {
 		var mc = mc();
 		if (mc.options != null && oldFov >= 0.0) {
-			mc.options.fov().set(oldFov);
+			mc.options.fov().set((int) oldFov);
 		}
 	}
 }

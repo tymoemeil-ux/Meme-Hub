@@ -25,7 +25,7 @@ public final class FastLadder extends Module {
 		if (player == null || !player.onClimbable()) {
 			return;
 		}
-		if (requireUp.get() && !player.input.jumping) {
+		if (requireUp.get() && !player.input.keyPresses.jump()) {
 			return;
 		}
 		var motion = player.getDeltaMovement();

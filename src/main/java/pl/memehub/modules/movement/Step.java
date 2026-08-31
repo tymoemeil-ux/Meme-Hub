@@ -25,7 +25,7 @@ public final class Step extends Module {
 		if (player == null || !player.onGround() || !player.horizontalCollision) {
 			return;
 		}
-		if (player.input.jumping) {
+		if (player.input.keyPresses.jump()) {
 			return; // gracz juz skacze sam
 		}
 		var motion = player.getDeltaMovement();

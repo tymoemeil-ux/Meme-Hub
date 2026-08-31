@@ -25,7 +25,7 @@ public final class InventoryUtil {
 
 	/** Szuka przedmiotu w calym ekwipunku (items: hotbar + main inventory). Zwraca indeks lub -1. */
 	public static int findSlot(Inventory inventory, Item item) {
-		for (int i = 0; i < inventory.items.size(); i++) {
+		for (int i = 0; i < inventory.getContainerSize(); i++) {
 			if (inventory.getItem(i).is(item)) {
 				return i;
 			}
@@ -49,13 +49,13 @@ public final class InventoryUtil {
 		}
 		Inventory inventory = mc.player.getInventory();
 
-		if (inventory.getSelected().is(item)) {
+		if (inventory.getItem(inventory.getSelectedSlot()).is(item)) {
 			return true;
 		}
 
 		int hotbar = findHotbarSlot(inventory, item);
 		if (hotbar != -1) {
-			inventory.selected = hotbar;
+			inventory.setSelectedSlot(hotbar);
 			return true;
 		}
 
@@ -69,9 +69,9 @@ public final class InventoryUtil {
 		}
 
 		// Zamiana przedmiotu z ekwipunku z aktualnie wybranym.
-		ItemStack current = inventory.getSelected();
+		ItemStack current = inventory.getItem(inventory.getSelectedSlot());
 		ItemStack wanted = inventory.getItem(slot);
-		inventory.setItem(inventory.selected, wanted);
+		inventory.setItem(inventory.getSelectedSlot(), wanted);
 		inventory.setItem(slot, current);
 		mc.player.containerMenu.broadcastChanges();
 		return true;
@@ -84,7 +84,7 @@ public final class InventoryUtil {
 
 	/** Indeks wolnego slotu (nie-czystego) w items lub -1. */
 	public static int findEmptySlot(Inventory inventory) {
-		for (int i = 0; i < inventory.items.size(); i++) {
+		for (int i = 0; i < inventory.getContainerSize(); i++) {
 			if (inventory.getItem(i).isEmpty()) {
 				return i;
 			}

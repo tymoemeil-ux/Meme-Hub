@@ -37,7 +37,8 @@ public final class Speed extends Module {
 		if (onlySprint.get() && !player.isSprinting()) {
 			return;
 		}
-		boolean moving = player.input.forwardImpulse > 0.01F || player.input.leftImpulse > 0.01F;
+		boolean moving = player.input.keyPresses.forward() || player.input.keyPresses.backward()
+				|| player.input.keyPresses.left() || player.input.keyPresses.right();
 		if (requireInput.get() && !moving) {
 			return;
 		}

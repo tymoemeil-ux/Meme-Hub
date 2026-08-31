@@ -59,7 +59,7 @@ public final class CartBreaker extends Module {
 		if (rotate.get()) {
 			RotationUtil.facePos(player, cart.position());
 		}
-		mc.gameMode.attack(cart);
+		mc.gameMode.attack(player, cart);
 		player.swing(InteractionHand.MAIN_HAND);
 		lastAttack = now;
 	}

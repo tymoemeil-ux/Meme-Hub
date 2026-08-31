@@ -47,7 +47,7 @@ public final class AutoTool extends Module {
 		}
 		if (!mc.gameMode.isDestroying()) {
 			if (active && switchBack.get() && previousSlot >= 0) {
-				player.getInventory().selected = previousSlot;
+				player.getInventory().setSelectedSlot(previousSlot);
 			}
 			active = false;
 			previousSlot = -1;
@@ -79,12 +79,12 @@ public final class AutoTool extends Module {
 				bestSlot = i;
 			}
 		}
-		if (bestSlot != -1 && bestSlot != player.getInventory().selected) {
+		if (bestSlot != -1 && bestSlot != player.getInventory().getSelectedSlot()) {
 			if (!active) {
-				previousSlot = player.getInventory().selected;
+				previousSlot = player.getInventory().getSelectedSlot();
 				active = true;
 			}
-			player.getInventory().selected = bestSlot;
+			player.getInventory().setSelectedSlot(bestSlot);
 		}
 	}
 
@@ -92,7 +92,7 @@ public final class AutoTool extends Module {
 	protected void onDisable() {
 		var player = player();
 		if (player != null && active && switchBack.get() && previousSlot >= 0) {
-			player.getInventory().selected = previousSlot;
+			player.getInventory().setSelectedSlot(previousSlot);
 		}
 		active = false;
 		previousSlot = -1;

@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.util.Util;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import pl.memehub.core.Category;
 import pl.memehub.core.Module;
 import pl.memehub.core.settings.BooleanSetting;
@@ -80,7 +81,7 @@ public final class Surround extends Module {
 			return;
 		}
 		if (rotate.get()) {
-			pl.memehub.util.RotationUtil.facePos(player, pos.getCenter());
+			pl.memehub.util.RotationUtil.facePos(player, Vec3.atCenterOf(pos));
 		}
 		InteractionUtil.placeBlockAt(mc, pos);
 		lastPlace = now;

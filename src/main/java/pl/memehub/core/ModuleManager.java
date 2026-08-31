@@ -1,6 +1,7 @@
 package pl.memehub.core;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.Packet;
@@ -183,7 +184,7 @@ public final class ModuleManager {
 		if (mc.player == null || mc.getWindow() == null) {
 			return;
 		}
-		long window = mc.getWindow().getWindow();
+		Window window = mc.getWindow();
 		Set<Integer> current = new HashSet<>();
 		for (Module module : modules) {
 			if (module.key == 0) {

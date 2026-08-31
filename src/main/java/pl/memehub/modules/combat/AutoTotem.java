@@ -50,13 +50,13 @@ public final class AutoTotem extends Module {
 		}
 
 		Inventory inventory = player.getInventory();
-		for (int slot = 0; slot < inventory.items.size(); slot++) {
+		for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
 			ItemStack stack = inventory.getItem(slot);
 			if (!stack.is(Items.TOTEM_OF_UNDYING)) {
 				continue;
 			}
 			ItemStack oldOffhand = player.getOffhandItem().copy();
-			inventory.setItem(40, stack);
+			inventory.setItem(45, stack);
 			inventory.setItem(slot, oldOffhand);
 			player.containerMenu.broadcastChanges();
 			return;

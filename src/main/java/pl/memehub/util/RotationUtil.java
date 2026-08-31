@@ -39,7 +39,7 @@ public final class RotationUtil {
 		player.yHeadRot = rotations[0];
 		player.yBodyRot = rotations[0];
 		if (player.connection != null) {
-			player.connection.send(new ServerboundMovePlayerPacket.Rot(rotations[0], rotations[1], player.onGround()));
+			player.connection.send(new ServerboundMovePlayerPacket.Rot(rotations[0], rotations[1], player.onGround(), false));
 		}
 	}
 
@@ -60,7 +60,7 @@ public final class RotationUtil {
 		player.yHeadRot = yaw;
 		player.yBodyRot = yaw;
 		if (player.connection != null) {
-			player.connection.send(new ServerboundMovePlayerPacket.Rot(yaw, pitch, player.onGround()));
+			player.connection.send(new ServerboundMovePlayerPacket.Rot(yaw, pitch, player.onGround(), false));
 		}
 		return Math.abs(Mth.wrapDegrees(yaw - rotations[0])) < 2.0F
 				&& Math.abs(Mth.wrapDegrees(pitch - rotations[1])) < 2.0F;

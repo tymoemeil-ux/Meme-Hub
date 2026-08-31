@@ -37,7 +37,7 @@ public final class Fullbright extends Module {
 	}
 
 	@SuppressWarnings("unused")
-	private LocalPlayer player() {
+	private LocalPlayer clientPlayer() {
 		return mc().player;
 	}
 }

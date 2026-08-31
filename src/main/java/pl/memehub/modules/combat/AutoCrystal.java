@@ -123,7 +123,7 @@ public final class AutoCrystal extends Module {
 			if (rotate.get() && player.connection != null) {
 				RotationUtil.facePos(player, crystal.position());
 			}
-			mc.gameMode.attack(crystal);
+			mc.gameMode.attack(player, crystal);
 			if (swing.get()) {
 				player.swing(InteractionHand.MAIN_HAND);
 			}
@@ -151,7 +151,7 @@ public final class AutoCrystal extends Module {
 				return;
 			}
 			hand = InteractionHand.MAIN_HAND;
-			previousSlot = player.getInventory().selected;
+			previousSlot = player.getInventory().getSelectedSlot();
 			placing = true;
 			lastSwitch = now;
 		}
@@ -274,7 +274,7 @@ public final class AutoCrystal extends Module {
 			return false;
 		}
 		// Brak encji w miejscu krysztalu.
-		AABB box = new AABB(pos, pos.above());
+		AABB box = new AABB(Vec3.atCenterOf(pos), Vec3.atCenterOf(pos.above()));
 		if (!level.getEntities(target, box).isEmpty()) {
 			return false;
 		}
@@ -305,7 +305,7 @@ public final class AutoCrystal extends Module {
 
 	private void restoreSlot(Player player) {
 		if (placing && swapBack.get() && previousSlot >= 0 && player != null) {
-			player.getInventory().selected = previousSlot;
+			player.getInventory().setSelectedSlot(previousSlot);
 			placing = false;
 			previousSlot = -1;
 		}

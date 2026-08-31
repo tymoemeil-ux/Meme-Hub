@@ -42,7 +42,7 @@ public final class NoFall extends Module {
 		}
 		LocalPlayer p = player;
 		p.connection.send(new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket
-				.Pos(p.getX(), p.getY(), p.getZ(), true));
+				.Pos(p.getX(), p.getY(), p.getZ(), true, false));
 		player.fallDistance = 0.0F;
 	}
 }

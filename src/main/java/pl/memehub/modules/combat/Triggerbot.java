@@ -67,7 +67,7 @@ public final class Triggerbot extends Module {
 			return;
 		}
 
-		mc.gameMode.attack(target);
+		mc.gameMode.attack(player, target);
 		player.swing(InteractionHand.MAIN_HAND);
 		lastAttack = now;
 	}

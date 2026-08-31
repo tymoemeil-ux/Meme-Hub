@@ -39,8 +39,8 @@ public final class AutoSword extends Module {
 				break;
 			}
 		}
-		if (best != -1 && best != inventory.selected) {
-			inventory.selected = best;
+		if (best != -1 && best != inventory.getSelectedSlot()) {
+			inventory.setSelectedSlot(best);
 		}
 		return false; // nie przejmujemy ataku
 	}

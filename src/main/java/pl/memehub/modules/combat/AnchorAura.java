@@ -7,6 +7,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RespawnAnchorBlock;
 import net.minecraft.world.phys.Vec3;
 import pl.memehub.core.Category;
@@ -92,7 +93,7 @@ public final class AnchorAura extends Module {
 
 		switch (phase) {
 			case PLACE -> {
-				if (!mc.level.getBlockState(anchorPos).is(Items.RESPAWN_ANCHOR)) {
+				if (!mc.level.getBlockState(anchorPos).is(Blocks.RESPAWN_ANCHOR)) {
 					if (!autoPlace.get()) {
 						return;
 					}
@@ -156,11 +157,11 @@ public final class AnchorAura extends Module {
 		var inventory = player.getInventory();
 		int empty = InventoryUtil.findEmptySlot(inventory);
 		if (empty != -1 && empty < 9) {
-			inventory.selected = empty;
+			inventory.setSelectedSlot(empty);
 		} else if (empty != -1) {
 			// Zamien pusty slot z aktualnie wybranym.
-			var stack = inventory.getSelected();
-			inventory.setItem(inventory.selected, inventory.getItem(empty));
+			var stack = inventory.getItem(inventory.getSelectedSlot());
+			inventory.setItem(inventory.getSelectedSlot(), inventory.getItem(empty));
 			inventory.setItem(empty, stack);
 			player.containerMenu.broadcastChanges();
 		}

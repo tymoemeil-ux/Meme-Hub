@@ -88,7 +88,7 @@ public final class HudModule extends Module {
 	// ------------------------------------------------------------------
 
 	private void renderFps(GuiGraphicsExtractor graphics, Font font, float scale) {
-		int fps = mc().fps;
+		int fps = mc().getFps();
 		int color = fps >= 120 ? RenderUtil.rgb(80, 255, 80) : fps >= 60 ? RenderUtil.rgb(255, 220, 60) : RenderUtil.rgb(255, 80, 80);
 		String text = fps + " FPS";
 		if (shadows.get()) {
@@ -104,7 +104,7 @@ public final class HudModule extends Module {
 			return;
 		}
 		String text = String.format("XYZ %.1f / %.1f / %.1f", player.getX(), player.getY(), player.getZ());
-		String dim = player.level().dimension().location().getPath();
+		String dim = player.level().dimension().identifier().getPath();
 		String full = text + "  [" + dim + "]";
 		int color = RenderUtil.rgb(210, 210, 210);
 		if (shadows.get()) {

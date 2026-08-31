@@ -26,7 +26,8 @@ public final class NoSlow extends Module {
 		if (player == null || !player.isUsingItem() || player.onGround()) {
 			return;
 		}
-		boolean moving = player.input.forwardImpulse > 0.01F || player.input.leftImpulse > 0.01F;
+		boolean moving = player.input.keyPresses.forward() || player.input.keyPresses.backward()
+				|| player.input.keyPresses.left() || player.input.keyPresses.right();
 		if (onlyMoving.get() && !moving) {
 			return;
 		}

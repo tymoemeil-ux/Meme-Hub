@@ -128,7 +128,7 @@ public final class WindChargeSynergy extends Module {
 					if (rotate.get()) {
 						RotationUtil.facePos(player, target.getEyePosition());
 					}
-					mc.gameMode.attack(target);
+					mc.gameMode.attack(player, target);
 				}
 				player.swing(InteractionHand.MAIN_HAND);
 				state = State.COOLDOWN;

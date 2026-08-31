@@ -1,6 +1,6 @@
 package pl.memehub.modules.movement;
 
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.player.LocalPlayer;
 import pl.memehub.core.Category;
 import pl.memehub.core.Module;
 import pl.memehub.core.settings.BooleanSetting;
@@ -57,7 +57,8 @@ public final class Sprint extends Module {
 		}
 	}
 
-	private boolean isMoving(Player player) {
-		return player.input.forwardImpulse > 0.01F || player.input.leftImpulse > 0.01F;
+	private boolean isMoving(LocalPlayer player) {
+		return player.input.keyPresses.forward() || player.input.keyPresses.backward()
+				|| player.input.keyPresses.left() || player.input.keyPresses.right();
 	}
 }

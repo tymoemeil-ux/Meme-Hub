@@ -67,7 +67,7 @@ public final class MaceSmashAssist extends Module {
 		// Powrot do poprzedniego slotu po ataku.
 		if (switchingBack && switchBackDelay.get() > 0.0
 				&& Util.getMillis() - lastAttack >= switchBackDelay.longValue()) {
-			player.getInventory().selected = previousSlot;
+			player.getInventory().setSelectedSlot(previousSlot);
 			switchingBack = false;
 			previousSlot = -1;
 		}
@@ -95,7 +95,7 @@ public final class MaceSmashAssist extends Module {
 		// Przelacz na bulave, jesli nie trzymamy jej w rece.
 		if (!player.getMainHandItem().is(Items.MACE) && !player.getOffhandItem().is(Items.MACE)) {
 			if (previousSlot == -1) {
-				previousSlot = player.getInventory().selected;
+				previousSlot = player.getInventory().getSelectedSlot();
 			}
 			if (!InventoryUtil.selectItem(mc, Items.MACE, true)) {
 				return;
@@ -117,7 +117,7 @@ public final class MaceSmashAssist extends Module {
 			RotationUtil.facePos(player, target.getEyePosition());
 		}
 		if (target != null) {
-			mc.gameMode.attack(target);
+			mc.gameMode.attack(player, target);
 		}
 		player.swing(InteractionHand.MAIN_HAND);
 		lastAttack = now;
@@ -131,7 +131,7 @@ public final class MaceSmashAssist extends Module {
 	protected void onDisable() {
 		var player = player();
 		if (player != null && previousSlot != -1 && switchingBack) {
-			player.getInventory().selected = previousSlot;
+			player.getInventory().setSelectedSlot(previousSlot);
 		}
 		previousSlot = -1;
 		switchingBack = false;

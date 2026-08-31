@@ -10,7 +10,7 @@ import pl.memehub.core.settings.NumberSetting;
  * AirJump - dodatkowy skok w powietrzu.
  *
  * <p>Gdy gracz wciska skok, a nie stoi na ziemi, modul sztucznie ustawia
- * {@code onGround = true} i wywoluje {@code jumpFromGround()}, co pozwala na
+ * {@code setOnGround(true)} i wywoluje {@code jumpFromGround()}, co pozwala na
  * kolejny skok. Opcjonalnie wysyla pakiet {@code StatusOnly(true)}, aby serwer
  * zintegrowany "widzial" gracza na ziemi (testy fizyki).
  */
@@ -40,7 +40,7 @@ public final class AirJump extends Module {
 		if (player.onGround()) {
 			return;
 		}
-		if (!player.input.jumping) {
+		if (!player.input.keyPresses.jump()) {
 			return;
 		}
 		if (notInLiquid.get() && (player.isInWater() || player.isInLava())) {
@@ -54,10 +54,10 @@ public final class AirJump extends Module {
 			return;
 		}
 
-		player.onGround = true;
+		player.setOnGround(true);
 		player.jumpFromGround();
 		if (packet.get()) {
-			player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(true));
+			player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(true, false));
 		}
 		lastJumpTick = tick;
 	}

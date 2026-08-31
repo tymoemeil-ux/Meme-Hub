@@ -1,6 +1,7 @@
 package pl.memehub.modules.vehicle;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Util;
@@ -130,7 +131,7 @@ public final class CartPlacer extends Module {
 					if (rotate.get()) {
 						RotationUtil.facePos(player, cart.position());
 					}
-					mc.gameMode.attack(cart);
+					mc.gameMode.attack(player, cart);
 					player.swing(InteractionHand.MAIN_HAND);
 				}
 				step = Step.WAIT;
@@ -167,7 +168,7 @@ public final class CartPlacer extends Module {
 		return base;
 	}
 
-	private boolean placeRailIfNeeded(Minecraft mc, Player player, BlockPos railPos) {
+	private boolean placeRailIfNeeded(Minecraft mc, LocalPlayer player, BlockPos railPos) {
 		if (mc.level == null) {
 			return false;
 		}
@@ -190,7 +191,7 @@ public final class CartPlacer extends Module {
 		return true;
 	}
 
-	private boolean placeCartIfNeeded(Minecraft mc, Player player, BlockPos railPos) {
+	private boolean placeCartIfNeeded(Minecraft mc, LocalPlayer player, BlockPos railPos) {
 		if (mc.level == null) {
 			return false;
 		}

@@ -110,7 +110,7 @@ public final class KillAura extends Module {
 			return;
 		}
 
-		mc.gameMode.attack(target);
+		mc.gameMode.attack(player, target);
 		if (swing.get()) {
 			player.swing(InteractionHand.MAIN_HAND);
 		}

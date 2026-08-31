@@ -28,7 +28,7 @@ public final class LongJump extends Module {
 		if (player == null || !player.onGround()) {
 			return;
 		}
-		if (player.input.forwardImpulse < minForward.get().floatValue()) {
+		if (player.input.getMoveVector().y < minForward.get().floatValue()) {
 			return;
 		}
 		Vec3 look = player.getLookAngle();

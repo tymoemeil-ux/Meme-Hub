@@ -84,7 +84,7 @@ public abstract class Module {
 		if (key == 0) {
 			return "NONE";
 		}
-		String name = InputConstants.getKey(key, -1).getName();
+		String name = InputConstants.Type.KEYSYM.getOrCreate(key).getName();
 		return name.replace("key.keyboard.", "").toUpperCase();
 	}
 

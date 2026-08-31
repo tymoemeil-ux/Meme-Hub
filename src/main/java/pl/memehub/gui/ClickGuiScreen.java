@@ -1,10 +1,13 @@
 package pl.memehub.gui;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 import pl.memehub.config.Config;
 import pl.memehub.core.Category;
 import pl.memehub.core.Module;
@@ -349,7 +352,10 @@ public final class ClickGuiScreen extends Screen {
 	// ------------------------------------------------------------------
 
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+	public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
+		double mouseX = click.x();
+		double mouseY = click.y();
+		int button = click.button();
 		for (Category category : Category.values()) {
 			Panel panel = panels.get(category);
 			if (panel == null || !categoryVisible(category)) {
@@ -371,7 +377,7 @@ public final class ClickGuiScreen extends Screen {
 				return true;
 			}
 		}
-		return super.mouseClicked(mouseX, mouseY, button);
+		return super.mouseClicked(click, doubled);
 	}
 
 	private boolean handleRowClick(Category category, Panel panel, double mouseX, double mouseY, int button) {
@@ -441,60 +447,60 @@ public final class ClickGuiScreen extends Screen {
 	}
 
 	@Override
-	public boolean charTyped(char codePoint, int modifiers) {
+	public boolean charTyped(CharacterEvent input) {
 		if (bindingModule != null) {
-			return super.charTyped(codePoint, modifiers);
+			return super.charTyped(input);
 		}
-		if (Character.isISOControl(codePoint)) {
-			return super.charTyped(codePoint, modifiers);
+		if (Character.isISOControl(input.codepoint())) {
+			return super.charTyped(input);
 		}
-		search += codePoint;
+		search += input.codepointAsString();
 		return true;
 	}
 
 	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+	public boolean keyPressed(KeyEvent keyEvent) {
 		if (bindingModule != null) {
-			if (keyCode == InputConstants.KEY_ESCAPE) {
+			if (keyEvent.isEscape()) {
 				bindingModule.key = 0;
 			} else {
-				bindingModule.key = keyCode;
+				bindingModule.key = keyEvent.key();
 			}
 			bindingModule = null;
 			Config.INSTANCE.save();
 			return true;
 		}
-		if (keyCode == InputConstants.KEY_BACKSPACE && !search.isEmpty()) {
+		if (keyEvent.key() == GLFW.GLFW_KEY_BACKSPACE && !search.isEmpty()) {
 			search = search.substring(0, search.length() - 1);
 			return true;
 		}
-		if (keyCode == InputConstants.KEY_ESCAPE) {
+		if (keyEvent.isEscape()) {
 			if (!search.isEmpty()) {
 				search = "";
 				return true;
 			}
 		}
-		return super.keyPressed(keyCode, scanCode, modifiers);
+		return super.keyPressed(keyEvent);
 	}
 
 	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+	public boolean mouseReleased(MouseButtonEvent click) {
 		for (Panel panel : panels.values()) {
 			panel.dragging = false;
 		}
-		return super.mouseReleased(mouseX, mouseY, button);
+		return super.mouseReleased(click);
 	}
 
 	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+	public boolean mouseDragged(MouseButtonEvent click, double dragX, double dragY) {
 		for (Panel panel : panels.values()) {
 			if (panel.dragging) {
-				panel.x = (int) Math.max(0, mouseX - panel.dragOffsetX);
-				panel.y = (int) Math.max(0, mouseY - panel.dragOffsetY);
+				panel.x = (int) Math.max(0, click.x() - panel.dragOffsetX);
+				panel.y = (int) Math.max(0, click.y() - panel.dragOffsetY);
 				return true;
 			}
 		}
-		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+		return super.mouseDragged(click, dragX, dragY);
 	}
 
 	@Override

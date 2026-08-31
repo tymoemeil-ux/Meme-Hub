@@ -28,7 +28,7 @@ public final class Spider extends Module {
 		if (player == null || !player.horizontalCollision || player.onGround()) {
 			return;
 		}
-		if (requireForward.get() && player.input.forwardImpulse <= 0.01F) {
+		if (requireForward.get() && player.input.getMoveVector().y <= 0.01F) {
 			return;
 		}
 		var motion = player.getDeltaMovement();

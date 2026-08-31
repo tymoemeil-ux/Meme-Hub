@@ -45,7 +45,7 @@ public final class AimAssist extends Module {
 		if (silent.get()) {
 			// Wyslij pakiet rotacji bez zmiany lokalnego widoku (serwer "widzi" obrot).
 			player.connection.send(new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket
-					.Rot(rotations[0], rotations[1], player.onGround()));
+					.Rot(rotations[0], rotations[1], player.onGround(), false));
 		} else {
 			RotationUtil.smoothFacePos(player, target.getEyePosition(), speed.get().floatValue());
 		}

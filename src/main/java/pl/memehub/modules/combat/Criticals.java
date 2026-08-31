@@ -57,8 +57,9 @@ public final class Criticals extends Module {
 			Entity target = scheduledTarget;
 			scheduledTarget = null;
 			var mc = mc();
-			if (mc.gameMode != null && target != null && target.isAlive()) {
-				mc.gameMode.attack(target);
+			var player = player();
+			if (mc.gameMode != null && player != null && target != null && target.isAlive()) {
+				mc.gameMode.attack(player, target);
 			}
 		}
 	}
@@ -105,7 +106,7 @@ public final class Criticals extends Module {
 		if (connection == null) {
 			return;
 		}
-		connection.send(new ServerboundMovePlayerPacket.PosRot(x, y + 0.0625, z, yaw, pitch, false));
-		connection.send(new ServerboundMovePlayerPacket.PosRot(x, y, z, yaw, pitch, false));
+		connection.send(new ServerboundMovePlayerPacket.PosRot(x, y + 0.0625, z, yaw, pitch, false, false));
+		connection.send(new ServerboundMovePlayerPacket.PosRot(x, y, z, yaw, pitch, false, false));
 	}
 }
