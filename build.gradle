@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	// Loom 1.17 dla Minecraft 26.2 (wersja nieobfuskowana - plugin NIE remapuje Minecrafta ani modow).
 	// Uwaga: dla wersji 26.1+ uzywamy pluginu "net.fabricmc.fabric-loom", a NIE "fabric-loom-remap".
+	// Loom 1.17 jest dystrybuowany jako 1.17-SNAPSHOT (patrz gradle.properties / fabric-example-mod).
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
 
@@ -13,7 +14,7 @@ base {
 }
 
 repositories {
-	// Domyslne repozytoria (Maven Central / Fabric) sa dostepne przez pluginManagement; tutaj mozna dodac wlasne.
+	// Loom sam dodaje niezedne repozytoria (Minecraft, Fabric). Tutaj mozna dodac wlasne.
 }
 
 dependencies {
@@ -24,21 +25,21 @@ dependencies {
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 }
 
-java {
-	// Minecraft 26.x wymaga Java SE 25.
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(25)
-	}
-}
-
-tasks.withType(JavaCompile).configureEach {
-	it.options.release = 25
-}
-
 processResources {
 	filesMatching('fabric.mod.json') {
 		expand project.properties
 	}
+}
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+	withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
 }
 
 // Zamiast "remapJar" (nie istnieje juz dla wersji nieobfuskowanych) uzywamy standardowego zadania "jar".
