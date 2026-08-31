@@ -7,11 +7,13 @@ package pl.memehub.core.settings;
 public abstract class Setting<T> {
 	protected final String name;
 	protected final String description;
+	protected final T defaultValue;
 	protected T value;
 
 	protected Setting(String name, String description, T defaultValue) {
 		this.name = name;
 		this.description = description;
+		this.defaultValue = defaultValue;
 		this.value = defaultValue;
 	}
 
@@ -29,6 +31,16 @@ public abstract class Setting<T> {
 
 	public void set(T value) {
 		this.value = value;
+	}
+
+	/** Wartosc domyslna (z konstruktora). */
+	public T defaultValue() {
+		return defaultValue;
+	}
+
+	/** Przywraca wartosc domyslna. */
+	public void reset() {
+		this.value = defaultValue;
 	}
 
 	/** Nazwa wartosci do wyswietlenia w ClickGUI. */

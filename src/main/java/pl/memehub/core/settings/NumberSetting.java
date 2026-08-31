@@ -49,6 +49,11 @@ public class NumberSetting extends Setting<Double> {
 		this.value = clamp(newValue, min, max);
 	}
 
+	@Override
+	public void reset() {
+		this.value = clamp(defaultValue, min, max);
+	}
+
 	private static double clamp(double v, double min, double max) {
 		return Math.max(min, Math.min(max, v));
 	}

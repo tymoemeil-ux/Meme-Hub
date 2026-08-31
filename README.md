@@ -16,15 +16,15 @@ z silnikiem gry w pojedynczym swiecie**.
 ## Budowa i uruchomienie
 
 ```bash
-# wygenerowanie wrappera (wymaga systemowego Gradle 9.x, tylko pierwszy raz)
-gradle wrapper
-
-# zbudowanie moda
+# zbudowanie moda (wrapper jest w repozytorium)
 ./gradlew build
 
 # gotowy plik: build/libs/meme-hub-1.0.0.jar
 # wrzuc go do folderu mods/ instalacji Fabric 26.2
 ```
+
+Build odbywa sie rowniez automatycznie w **GitHub Actions** - gotowy jar
+mozna pobrac z zakladki "Actions" (artefakt `meme-hub-jar`).
 
 ## Struktura projektu
 
@@ -52,11 +52,13 @@ src/main/java/pl/memehub/
   gui/ClickGuiScreen.java - panel graficzny (26.x Screen)
   modules/
     combat/   AutoCrystal, AnchorAura, AutoTotem, KillAura, Criticals,
-              Triggerbot, MaceSmashAssist, WindChargeSynergy, Velocity, Surround
+              Triggerbot, MaceSmashAssist, WindChargeSynergy, Velocity,
+              Surround, AimAssist, AutoSword
     vehicle/  CartPlacer (TNT Cart Auto-Placer), CartBreaker
-    movement/ Sprint, NoFall, Speed, AirJump
+    movement/ Sprint, NoFall, Speed, AirJump, LongJump, Spider, Step,
+              NoSlow, FastLadder
     render/   Fullbright, HudModule (ArrayList, TargetHUD, cooldown, FPS, coords),
-              Watermark
+              Watermark, Crosshair, Zoom
     utility/  ClickGuiModule, Panic, AutoTool, AutoRespawn
   util/       ChatUtil, RotationUtil, EntityUtil, InventoryUtil,
               InteractionUtil, DamageMath, RenderUtil
@@ -97,6 +99,9 @@ src/main/java/pl/memehub/
   EntityMoveEvent; tryby HURT/ALWAYS, poziomo/pionowo).
 - **Surround** - automatyczne otaczanie gracza sciana z obsydianu
   (tryby CROSS/FULL, opoznienia miedzy blokami).
+- **AimAssist** - plynne celowanie w najblizszy cel (tryb Silent wysyla
+  tylko pakiet rotacji).
+- **AutoSword** - przed atakiem wybiera najlepszy miecz z hotbaru.
 
 ### Cart PvP
 - **TNT Cart Auto-Placer** - tor -> wozek TNT -> natychmiastowa detonacja
@@ -105,21 +110,28 @@ src/main/java/pl/memehub/
 
 ### Movement / Render / Utility
 - Sprint, NoFall (pakietowe resetowanie upadku), Speed (strafe boost),
-  AirJump (double jump), Fullbright,
+  AirJump (double jump), LongJump (wzmocniony skok), Spider (wspinaczka),
+  Step (auto-przeskakiwanie blokow), NoSlow (brak spowolnienia),
+  FastLadder (szybsze drabiny), Fullbright,
   HUD (ArrayList / TargetHUD / cooldown ataku / FPS / wspolrzedne),
-  Watermark (logo moda), ClickGUI (keybind: Prawy Shift),
-  Panic (wylacza wszystko), AutoTool, AutoRespawn.
+  Watermark (logo moda), Crosshair (wlasny celownik), Zoom (zmiana FOV),
+  ClickGUI (keybind: Prawy Shift), Panic (wylacza wszystko),
+  AutoTool, AutoRespawn.
 
 ## ClickGUI
 
 Otwierany domyslnie **Prawym Shiftem** (keybind zmienisz w samym GUI):
 
+- **Wyszukiwarka**: pisz, aby filtrowac moduly po nazwie (Backspace - kasuj,
+  ESC - czysci wyszukiwanie / zamyka ekran).
 - LPM na naglowku panelu - przeciaganie; PPM - zwijanie/rozwijanie panelu.
 - Kolo myszy - przewijanie dlugich list modulow.
 - LPM na module - wlacz / wylacz; PPM - rozwin ustawienia.
-- Ustawienia: boolean - klik; liczba - LPM (+) / PPM (-); enum - cykl LPM.
+- Ustawienia: boolean - klik; liczba - LPM (+) / PPM (-); enum - cykl LPM;
+  **srodkowy przycisk - reset do wartosci domyslnej**.
 - Wiersz "KEY" - kliknij i wcisnij klawisz, aby ustawic keybind (ESC - usun).
-- Tooltip z opisem modulu / ustawienia po najechaniu myszka.
+- Tooltip z opisem modulu / ustawienia po najechaniu myszka;
+  naglowki paneli pokazuja liczbe modulow.
 
 ## Konfiguracja
 

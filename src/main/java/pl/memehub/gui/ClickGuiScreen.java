@@ -26,12 +26,16 @@ import java.util.Map;
  * <p>Funkcje:
  * <ul>
  *   <li>paniele per kategoria (Combat / Movement / Render / Utility), mozna je
- *       przeciagac za naglowek; LPM na naglowek = przeciaganie, PPM = zwijanie,</li>
+ *       przeciagac za naglowek; LPM = przeciaganie, PPM = zwijanie,</li>
+ *   <li>WYSZUKIWARKA: pisz klawiatura, aby filtrowac moduly po nazwie
+ *       (Backspace - kasuj, ESC - czysci wyszukiwanie / zamyka),</li>
  *   <li>scroll myszy przewija dlugie listy modulow,</li>
  *   <li>LPM na module - wlacz / wylacz, PPM - rozwin ustawienia,</li>
- *   <li>ustawienia: boolean - klik, number - LPM + / PPM -, enum - cykl LPM,</li>
+ *   <li>ustawienia: boolean - klik, liczba - LPM + / PPM -, enum - cykl LPM,
+ *       SRODKOWY PRZYCISK - reset do wartosci domyslnej,</li>
  *   <li>wiersz KEY - klik i wcisniecie klawisza ustawia keybind (ESC kasuje),</li>
- *   <li>tooltip z opisem modulu / ustawienia po najechaniu myszka.</li>
+ *   <li>tooltip z opisem modulu / ustawienia po najechaniu myszka,</li>
+ *   <li>pasek stanu w kolorze kategorii, licznik modulow w naglowku.</li>
  * </ul>
  *
  * <p>Zgodnie z cyklem zycia Screen w 26.1+: renderowanie przez
@@ -46,6 +50,7 @@ public final class ClickGuiScreen extends Screen {
 
 	private final Map<Category, Panel> panels = new HashMap<>();
 	private Module bindingModule = null;
+	private String search = "";
 
 	/** Opis podpowiedzi narysowany w ostatniej klatce. */
 	private String hoverTooltip = null;
@@ -67,7 +72,7 @@ public final class ClickGuiScreen extends Screen {
 	}
 
 	/** Pojedynczy wiersz panelu (modul / ustawienie / wiersz klawisza). */
-	private record Row(int y, Module module, Setting<?> setting, boolean keyRow, boolean header) {
+	private record Row(int y, Module module, Setting<?> setting, boolean keyRow) {
 	}
 
 	public ClickGuiScreen(Minecraft minecraft, int panelWidth) {
@@ -108,21 +113,44 @@ public final class ClickGuiScreen extends Screen {
 	}
 
 	// ------------------------------------------------------------------
+	// Filtrowanie po wyszukiwarce
+	// ------------------------------------------------------------------
+
+	private List<Module> visibleModules(Category category) {
+		List<Module> all = ModuleManager.INSTANCE.getByCategory(category);
+		if (search.isEmpty()) {
+			return all;
+		}
+		String q = search.toLowerCase();
+		List<Module> result = new ArrayList<>();
+		for (Module module : all) {
+			if (module.name().toLowerCase().contains(q) || module.category().displayName().toLowerCase().contains(q)) {
+				result.add(module);
+			}
+		}
+		return result;
+	}
+
+	private boolean categoryVisible(Category category) {
+		return !visibleModules(category).isEmpty();
+	}
+
+	// ------------------------------------------------------------------
 	// Uklad wierszy (wspolne dla renderowania i klikow)
 	// ------------------------------------------------------------------
 
 	private List<Row> buildRows(Category category, Panel panel) {
 		List<Row> rows = new ArrayList<>();
 		int y = panel.y + headerHeight + 1;
-		for (Module module : ModuleManager.INSTANCE.getByCategory(category)) {
-			rows.add(new Row(y - panel.scroll * rowHeight, module, null, false, false));
+		for (Module module : visibleModules(category)) {
+			rows.add(new Row(y - panel.scroll * rowHeight, module, null, false));
 			y += rowHeight;
 			if (Boolean.TRUE.equals(panel.expanded.get(module))) {
 				for (Setting<?> setting : module.settings()) {
-					rows.add(new Row(y - panel.scroll * rowHeight, module, setting, false, false));
+					rows.add(new Row(y - panel.scroll * rowHeight, module, setting, false));
 					y += rowHeight;
 				}
-				rows.add(new Row(y - panel.scroll * rowHeight, module, null, true, false));
+				rows.add(new Row(y - panel.scroll * rowHeight, module, null, true));
 				y += rowHeight;
 			}
 		}
@@ -130,8 +158,8 @@ public final class ClickGuiScreen extends Screen {
 	}
 
 	private int contentRows(Category category, Panel panel) {
-		int rows = ModuleManager.INSTANCE.getByCategory(category).size();
-		for (Module module : ModuleManager.INSTANCE.getByCategory(category)) {
+		int rows = visibleModules(category).size();
+		for (Module module : visibleModules(category)) {
 			if (Boolean.TRUE.equals(panel.expanded.get(module))) {
 				rows += module.settings().size() + 1;
 			}
@@ -150,7 +178,7 @@ public final class ClickGuiScreen extends Screen {
 
 	private void renderPanel(GuiGraphicsExtractor graphics, Category category, int mouseX, int mouseY) {
 		Panel panel = panels.get(category);
-		if (panel == null) {
+		if (panel == null || !categoryVisible(category)) {
 			return;
 		}
 		int height = panelHeight(category, panel);
@@ -159,12 +187,15 @@ public final class ClickGuiScreen extends Screen {
 		RenderUtil.rect(graphics, panel.x, panel.y, panelWidth, height, RenderUtil.rgba(26, 26, 30, 215));
 		RenderUtil.outline(graphics, panel.x, panel.y, panelWidth, height, RenderUtil.rgb(90, 90, 100));
 
-		// Naglowek kategorii - gradient w kolorze kategorii.
+		// Naglowek kategorii - gradient w kolorze kategorii + licznik modulow.
 		RenderUtil.gradient(graphics, panel.x, panel.y, panelWidth, headerHeight,
 				RenderUtil.withAlpha(category.color(), 235), RenderUtil.withAlpha(category.color(), 120));
-		RenderUtil.centeredText(graphics, this.font, category.displayName() + (panel.collapsed ? "  [+] " : "  [-] "),
+		String header = category.displayName() + (panel.collapsed ? "  [+]" : "  [-]");
+		RenderUtil.centeredText(graphics, this.font, header,
 				panel.x + panelWidth / 2, panel.y + (headerHeight - this.font.lineHeight) / 2 + 1,
 				RenderUtil.rgb(255, 255, 255));
+		RenderUtil.textShadow(graphics, this.font, String.valueOf(visibleModules(category).size()),
+				panel.x + panelWidth - 10, panel.y + 2, RenderUtil.rgb(255, 255, 255));
 
 		if (panel.collapsed) {
 			return;
@@ -178,32 +209,25 @@ public final class ClickGuiScreen extends Screen {
 			}
 			boolean hovered = mouseX >= panel.x && mouseX <= panel.x + panelWidth
 					&& mouseY >= row.y && mouseY <= row.y + rowHeight;
-			if (row.keyRow) {
+			if (row.keyRow()) {
 				int bg = hovered ? RenderUtil.rgba(80, 60, 50, 200) : RenderUtil.rgba(48, 40, 36, 170);
 				RenderUtil.rect(graphics, panel.x, row.y, panelWidth, rowHeight, bg);
-				String text = bindingModule == row.module ? "PRESS KEY..." : "KEY: " + row.module.keyName();
+				String text = bindingModule == row.module() ? "PRESS KEY..." : "KEY: " + row.module().keyName();
 				RenderUtil.textShadow(graphics, this.font, text, panel.x + 5, row.y + 2, RenderUtil.rgb(255, 210, 140));
 				if (hovered) {
 					hoverTooltip = "Kliknij i wcisnij klawisz, aby ustawic keybind. ESC - usun.";
 				}
 				continue;
 			}
-			if (row.setting != null) {
-				int bg = hovered ? RenderUtil.rgba(60, 62, 72, 200) : RenderUtil.rgba(36, 37, 44, 170);
-				RenderUtil.rect(graphics, panel.x, row.y, panelWidth, rowHeight, bg);
-				String text = row.setting.name() + ": " + row.setting.displayValue();
-				RenderUtil.textShadow(graphics, this.font, text, panel.x + 5, row.y + 2, RenderUtil.rgb(205, 208, 230));
-				if (hovered) {
-					hoverTooltip = row.setting.description();
-				}
+			if (row.setting() != null) {
+				renderSettingRow(graphics, row, hovered);
 				continue;
 			}
 
 			// Wiersz modulu.
-			Module module = row.module;
+			Module module = row.module();
 			int bg = hovered ? RenderUtil.rgba(70, 72, 82, 200) : RenderUtil.rgba(44, 45, 54, 170);
 			RenderUtil.rect(graphics, panel.x, row.y, panelWidth, rowHeight, bg);
-			// Pasek stanu z lewej.
 			RenderUtil.rect(graphics, panel.x, row.y, 2, rowHeight,
 					module.isEnabled() ? RenderUtil.rgb(80, 255, 80) : RenderUtil.rgb(120, 120, 130));
 			String label = module.name();
@@ -233,15 +257,51 @@ public final class ClickGuiScreen extends Screen {
 		}
 	}
 
+	private void renderSettingRow(GuiGraphicsExtractor graphics, Row row, boolean hovered) {
+		Setting<?> setting = row.setting();
+		int bg = hovered ? RenderUtil.rgba(60, 62, 72, 200) : RenderUtil.rgba(36, 37, 44, 170);
+		RenderUtil.rect(graphics, this.panelX(row.module()), row.y, panelWidth, rowHeight, bg);
+		String text = setting.name() + ": " + setting.displayValue();
+		int valueColor = RenderUtil.rgb(160, 220, 255);
+		if (setting instanceof BooleanSetting bool) {
+			valueColor = bool.get() ? RenderUtil.rgb(90, 255, 120) : RenderUtil.rgb(200, 90, 90);
+		}
+		RenderUtil.textShadow(graphics, this.font, text, this.panelX(row.module()) + 5, row.y + 2,
+				RenderUtil.rgb(205, 208, 230));
+		// Pokolorowana wartosc na koncu wiersza.
+		String value = setting.displayValue();
+		int vx = this.panelX(row.module()) + panelWidth - this.font.width(value) - 4;
+		RenderUtil.textShadow(graphics, this.font, value, vx, row.y + 2, valueColor);
+		if (hovered) {
+			hoverTooltip = setting.description() + " (Srodek myszy = reset)";
+		}
+	}
+
+	private int panelX(Module module) {
+		for (Map.Entry<Category, Panel> entry : panels.entrySet()) {
+			if (visibleModules(entry.getKey()).contains(module)) {
+				return entry.getValue().x;
+			}
+		}
+		return 0;
+	}
+
 	private void renderFooter(GuiGraphicsExtractor graphics) {
+		// Pasek wyszukiwarki u gory.
+		RenderUtil.rect(graphics, 0, 0, this.width, 14, RenderUtil.rgba(0, 0, 0, 160));
+		String searchText = search.isEmpty() ? "Wpisz, aby szukac modulu..." : "Szukaj: " + search + "_";
+		RenderUtil.textShadow(graphics, this.font, searchText, 4, 3, RenderUtil.rgb(220, 220, 230));
+
+		// Pasek podpowiedzi u dolu.
 		int y = this.height - 14;
 		RenderUtil.rect(graphics, 0, y, this.width, 14, RenderUtil.rgba(0, 0, 0, 160));
-		RenderUtil.textShadow(graphics, this.font, "LPM: wlacz/wylacz  |  PPM: ustawienia  |  Kolo: przewijanie  |  ESC: zamknij",
+		RenderUtil.textShadow(graphics, this.font,
+				"LPM: wlacz/wylacz | PPM: ustawienia | Srodek: reset | Kolo: scroll | ESC: zamknij",
 				4, y + 3, RenderUtil.rgb(190, 190, 200));
 	}
 
 	private void renderTooltip(GuiGraphicsExtractor graphics, String text, int mouseX, int mouseY) {
-		int maxWidth = 200;
+		int maxWidth = 220;
 		List<String> lines = wrapText(text, maxWidth);
 		int boxWidth = 8;
 		for (String line : lines) {
@@ -265,7 +325,7 @@ public final class ClickGuiScreen extends Screen {
 		}
 	}
 
-	/** Proste zawijanie tekstu po spacjach do podanej szerokosci (bez FormattedCharSequence). */
+	/** Proste zawijanie tekstu po spacjach do podanej szerokosci. */
 	private List<String> wrapText(String text, int maxWidth) {
 		List<String> lines = new ArrayList<>();
 		StringBuilder current = new StringBuilder();
@@ -292,7 +352,7 @@ public final class ClickGuiScreen extends Screen {
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		for (Category category : Category.values()) {
 			Panel panel = panels.get(category);
-			if (panel == null) {
+			if (panel == null || !categoryVisible(category)) {
 				continue;
 			}
 			boolean inHeader = mouseX >= panel.x && mouseX <= panel.x + panelWidth
@@ -321,20 +381,20 @@ public final class ClickGuiScreen extends Screen {
 		for (Row row : buildRows(category, panel)) {
 			if (mouseX >= panel.x && mouseX <= panel.x + panelWidth
 					&& mouseY >= row.y && mouseY <= row.y + rowHeight) {
-				if (row.keyRow) {
-					bindingModule = row.module;
+				if (row.keyRow()) {
+					bindingModule = row.module();
 					return true;
 				}
-				if (row.setting != null) {
-					applySettingClick(row.setting, button);
+				if (row.setting() != null) {
+					applySettingClick(row.setting(), button);
 					Config.INSTANCE.save();
 					return true;
 				}
 				if (button == 0) {
-					row.module.toggle();
+					row.module().toggle();
 					Config.INSTANCE.save();
 				} else if (button == 1) {
-					panel.expanded.merge(row.module, Boolean.TRUE, (a, b) -> !a);
+					panel.expanded.merge(row.module(), Boolean.TRUE, (a, b) -> !a);
 				}
 				return true;
 			}
@@ -344,6 +404,10 @@ public final class ClickGuiScreen extends Screen {
 
 	@SuppressWarnings({"rawtypes", "unchecked"})
 	private void applySettingClick(Setting<?> setting, int button) {
+		if (button == 2) {
+			setting.reset();
+			return;
+		}
 		if (setting instanceof BooleanSetting bool) {
 			bool.toggle();
 		} else if (setting instanceof NumberSetting number) {
@@ -361,7 +425,7 @@ public final class ClickGuiScreen extends Screen {
 	public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
 		for (Category category : Category.values()) {
 			Panel panel = panels.get(category);
-			if (panel == null) {
+			if (panel == null || !categoryVisible(category)) {
 				continue;
 			}
 			boolean inPanel = mouseX >= panel.x && mouseX <= panel.x + panelWidth
@@ -374,6 +438,43 @@ public final class ClickGuiScreen extends Screen {
 			}
 		}
 		return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+	}
+
+	@Override
+	public boolean charTyped(char codePoint, int modifiers) {
+		if (bindingModule != null) {
+			return super.charTyped(codePoint, modifiers);
+		}
+		if (Character.isISOControl(codePoint)) {
+			return super.charTyped(codePoint, modifiers);
+		}
+		search += codePoint;
+		return true;
+	}
+
+	@Override
+	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		if (bindingModule != null) {
+			if (keyCode == InputConstants.KEY_ESCAPE) {
+				bindingModule.key = 0;
+			} else {
+				bindingModule.key = keyCode;
+			}
+			bindingModule = null;
+			Config.INSTANCE.save();
+			return true;
+		}
+		if (keyCode == InputConstants.KEY_BACKSPACE && !search.isEmpty()) {
+			search = search.substring(0, search.length() - 1);
+			return true;
+		}
+		if (keyCode == InputConstants.KEY_ESCAPE) {
+			if (!search.isEmpty()) {
+				search = "";
+				return true;
+			}
+		}
+		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
 	@Override
@@ -394,21 +495,6 @@ public final class ClickGuiScreen extends Screen {
 			}
 		}
 		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-	}
-
-	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		if (bindingModule != null) {
-			if (keyCode == InputConstants.KEY_ESCAPE) {
-				bindingModule.key = 0;
-			} else {
-				bindingModule.key = keyCode;
-			}
-			bindingModule = null;
-			Config.INSTANCE.save();
-			return true;
-		}
-		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
 	@Override

@@ -8,8 +8,10 @@ import net.minecraft.world.entity.Entity;
 import pl.memehub.event.ClientTickEvent;
 import pl.memehub.event.EventBus;
 import pl.memehub.event.Subscribe;
+import pl.memehub.modules.combat.AimAssist;
 import pl.memehub.modules.combat.AnchorAura;
 import pl.memehub.modules.combat.AutoCrystal;
+import pl.memehub.modules.combat.AutoSword;
 import pl.memehub.modules.combat.AutoTotem;
 import pl.memehub.modules.combat.Criticals;
 import pl.memehub.modules.combat.KillAura;
@@ -19,12 +21,19 @@ import pl.memehub.modules.combat.Triggerbot;
 import pl.memehub.modules.combat.Velocity;
 import pl.memehub.modules.combat.WindChargeSynergy;
 import pl.memehub.modules.movement.AirJump;
+import pl.memehub.modules.movement.FastLadder;
+import pl.memehub.modules.movement.LongJump;
 import pl.memehub.modules.movement.NoFall;
+import pl.memehub.modules.movement.NoSlow;
 import pl.memehub.modules.movement.Speed;
+import pl.memehub.modules.movement.Spider;
 import pl.memehub.modules.movement.Sprint;
+import pl.memehub.modules.movement.Step;
+import pl.memehub.modules.render.Crosshair;
 import pl.memehub.modules.render.Fullbright;
 import pl.memehub.modules.render.HudModule;
 import pl.memehub.modules.render.Watermark;
+import pl.memehub.modules.render.Zoom;
 import pl.memehub.modules.utility.AutoRespawn;
 import pl.memehub.modules.utility.AutoTool;
 import pl.memehub.modules.utility.ClickGuiModule;
@@ -79,6 +88,8 @@ public final class ModuleManager {
 		register(new WindChargeSynergy());
 		register(new Velocity());
 		register(new Surround());
+		register(new AimAssist());
+		register(new AutoSword());
 
 		// Cart PvP
 		register(new CartPlacer());
@@ -89,11 +100,18 @@ public final class ModuleManager {
 		register(new NoFall());
 		register(new Speed());
 		register(new AirJump());
+		register(new LongJump());
+		register(new Spider());
+		register(new Step());
+		register(new NoSlow());
+		register(new FastLadder());
 
 		// Render
 		register(new Fullbright());
 		register(new HudModule());
 		register(new Watermark());
+		register(new Crosshair());
+		register(new Zoom());
 
 		// Utility
 		register(new ClickGuiModule());
