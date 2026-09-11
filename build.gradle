@@ -91,7 +91,55 @@ tasks.register('reportCompileErrors') {
 		boolean compiledOk = new File(buildDirFile, 'compile-ok.marker').exists()
 
 		if (compiledOk) {
-			println "::notice::Kompilacja zakonczona sukcesem - diagnostyka pominięta."
+			println "::notice::Kompilacja zakonczona sukcesem - diagnostyka bledow pominieta."
+			// Weryfikacja zawartosci zbudowanego JAR-a (sandbox nie moze go pobrac z CI,
+			// wiec raportujemy strukture artefaktu przez adnotacje).
+			try {
+				File libsDir = new File(buildDirFile, 'libs')
+				def jars = fileTree(libsDir) { include '*.jar' }.files.sort { it.name }
+				if (jars.isEmpty()) {
+					announce("Kompilacja OK, ale w build/libs nie ma zadnego JAR-a.")
+					return
+				}
+				jars.each { File jarFile ->
+					def zip = new java.util.zip.ZipFile(jarFile)
+					try {
+						def names = zip.entries().collect { it.name }
+						def classes = names.findAll { it.endsWith('.class') }
+						boolean hasModJson = names.contains('fabric.mod.json')
+						boolean hasMixins = names.contains('memehub.mixins.json')
+						def license = names.findAll { it.startsWith('LICENSE') }
+						println("::notice::JAR ${jarFile.name} (${jarFile.length()} B): "
+								+ "${names.size()} wpisow, ${classes.size()} klas; "
+								+ "fabric.mod.json=${hasModJson}, mixins=${hasMixins}, LICENSE=${license}")
+						if (hasModJson) {
+							def entry = zip.getEntry('fabric.mod.json')
+							def text = zip.getInputStream(entry).getText('UTF-8')
+							if (text.length() > 1200) {
+								text = text.substring(0, 1200) + '...'
+							}
+							println("::notice::fabric.mod.json:\n" + text.replace('%', '%25').replace('\n', '%0A'))
+						}
+						def missing = []
+						if (!hasModJson) {
+							missing << 'fabric.mod.json'
+						}
+						if (!hasMixins) {
+							missing << 'memehub.mixins.json'
+						}
+						if (classes.count { it.startsWith('pl/memehub/') } < 50) {
+							missing << "klasy pl/memehub (jest ${classes.count { it.startsWith('pl/memehub/') }})"
+						}
+						if (!missing.isEmpty()) {
+							announce("JAR ${jarFile.name}: podejrzanie brakuje: ${missing}")
+						}
+					} finally {
+						zip.close()
+					}
+				}
+			} catch (Throwable t) {
+				announce("Nie udalo sie sprawdzic zawartosci JAR: ${t.class.simpleName}: ${t.message}")
+			}
 			return
 		}
 
