@@ -101,7 +101,8 @@ tasks.register('reportCompileErrors') {
 					announce("Kompilacja OK, ale w build/libs nie ma zadnego JAR-a.")
 					return
 				}
-				jars.each { File jarFile ->
+						jars.each { File jarFile ->
+					boolean isSourcesJar = jarFile.name.contains('-sources')
 					def zip = new java.util.zip.ZipFile(jarFile)
 					try {
 						def names = zip.entries().collect { it.name }
@@ -115,19 +116,20 @@ tasks.register('reportCompileErrors') {
 						if (hasModJson) {
 							def entry = zip.getEntry('fabric.mod.json')
 							def text = zip.getInputStream(entry).getText('UTF-8')
-							if (text.length() > 1200) {
-								text = text.substring(0, 1200) + '...'
+							if (text.length() > 1500) {
+								text = text.substring(0, 1500) + '...'
 							}
-							println("::notice::fabric.mod.json:\n" + text.replace('%', '%25').replace('\n', '%0A'))
+							// W jednej linii - adnotacje nie zachowuja wieloliniowych tresci.
+							println("::notice::fabric.mod.json: " + text.replaceAll(/[\r\n]+/, ' | '))
 						}
 						def missing = []
 						if (!hasModJson) {
 							missing << 'fabric.mod.json'
 						}
-						if (!hasMixins) {
+						if (!hasMixins && !isSourcesJar) {
 							missing << 'memehub.mixins.json'
 						}
-						if (classes.count { it.startsWith('pl/memehub/') } < 50) {
+						if (!isSourcesJar && classes.count { it.startsWith('pl/memehub/') } < 50) {
 							missing << "klasy pl/memehub (jest ${classes.count { it.startsWith('pl/memehub/') }})"
 						}
 						if (!missing.isEmpty()) {
