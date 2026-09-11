@@ -42,9 +42,173 @@ tasks.withType(JavaCompile).configureEach {
 	it.options.release = 25
 }
 
+// Znacznik dla diagnostyki: istnieje tylko wtedy, gdy kompilacja sie powiodla.
+tasks.named('compileJava') {
+	def marker = layout.buildDirectory.file('compile-ok.marker')
+	doFirst {
+		marker.get().asFile.delete()
+	}
+	doLast {
+		marker.get().asFile.text = 'ok'
+	}
+}
+
 // Zamiast "remapJar" (nie istnieje juz dla wersji nieobfuskowanych) uzywamy standardowego zadania "jar".
 jar {
 	from('LICENSE') {
 		rename { "${it}_${project.base.archivesName.get()}" }
 	}
 }
+
+// ---------------------------------------------------------------------------
+// DIAGNOSTYKA KOMPILACJI -> adnotacje GitHub Actions.
+//
+// CI buduje mod zdalnie (sandbox deweloperski nie ma dostepu do Maven/Mojang),
+// a surowe logi Actions nie sa dostepne przez API. Dlatego po nieudanym buildzie
+// ponawiamy kompilacje javac i wypisujemy bledy jako komendy workflow
+// "::error::", ktore GitHub zapisuje jako adnotacje check-runa - czytelne
+// przez REST API (repos/.../check-runs/{id}/annotations).
+// ---------------------------------------------------------------------------
+def diagnosticsEmitted = false
+
+tasks.register('reportCompileErrors') {
+	group = 'verification'
+	description = 'Ponawia javac i raportuje bledy kompilacji jako adnotacje GitHub Actions.'
+
+	doLast {
+		if (diagnosticsEmitted) {
+			return
+		}
+		diagnosticsEmitted = true
+
+		def announce = { String message ->
+			def encoded = message.replace('%', '%25').replace('\r', '').replace('\n', '%0A')
+			println "::error::${encoded}"
+		}
+
+		File buildDirFile = layout.buildDirectory.get().asFile
+		// Znacznik zapisywany tylko przy UDANEJ kompilacji (patrz doLast nizej).
+		boolean compiledOk = new File(buildDirFile, 'compile-ok.marker').exists()
+
+		if (compiledOk) {
+			println "::notice::Kompilacja zakonczona sukcesem - diagnostyka pominięta."
+			return
+		}
+
+		try {
+			def jdkHome = javaToolchains.launcherFor {
+				it.languageVersion = JavaLanguageVersion.of(25)
+			}.get().metadata.installationPath.asFile
+			File javac = new File(jdkHome, 'bin/javac')
+			if (!javac.exists()) {
+				announce("Nie znaleziono javac w ${javac} - diagnostyka niemozliwa.")
+				return
+			}
+
+			def sourceDirs = sourceSets.main.java.srcDirs.findAll { it.exists() }
+			def sources = sourceDirs.collectMany { dir ->
+				fileTree(dir) { include '**/*.java' }.files
+			}.collect { it.absolutePath }.sort()
+			if (sources.isEmpty()) {
+				announce("Brak plikow .java w source setach - nic do sprawdzenia.")
+				return
+			}
+
+			String classpath = sourceSets.main.compileClasspath.asPath
+			File classpathFile = new File(buildDirFile, 'diagnostics-classpath.txt')
+			classpathFile.parentFile.mkdirs()
+			classpathFile.text = classpath
+
+			File outDir = new File(buildDirFile, 'diagnostics-classes')
+			outDir.mkdirs()
+
+			List<String> cmd = [
+					javac.absolutePath,
+					'-proc:none',
+					'-nowarn',
+					'-Xmaxerrs', '2000',
+					'-encoding', 'UTF-8',
+					'--release', '25',
+					'-d', outDir.absolutePath,
+					'-classpath', classpath
+			]
+			cmd.addAll(sources)
+
+			ProcessBuilder pb = new ProcessBuilder(cmd)
+			pb.redirectErrorStream(true)
+			pb.directory(projectDir)
+			Process proc = pb.start()
+			String output = proc.inputStream.getText('UTF-8')
+			int exitCode = proc.waitFor()
+
+			File logFile = new File(buildDirFile, 'compile-diagnostics.txt')
+			logFile.text = output
+			println "----- javac (exit=${exitCode}) -----"
+			println output
+			println "----- koniec javac -----"
+
+			// Grupowanie: linia "Plik.java:NN: error: ..." rozpoczyna blok bledu.
+			def errorLine = ~/^.*\.java:\d+: error:.*$/
+			List<List<String>> blocks = []
+			List<String> current = null
+			output.eachLine { String line ->
+				if (errorLine.matcher(line).matches()) {
+					current = [line]
+					blocks << current
+				} else if (current != null && !line.trim().isEmpty()) {
+					if (current.size() < 6) {
+						current << line
+					}
+				} else if (current != null && line.trim().isEmpty()) {
+					current = null
+				}
+			}
+
+			if (blocks.isEmpty()) {
+				if (compiledOk) {
+					println "::notice::javac: kompilacja bez bledow."
+				} else {
+					announce("javac nie zglosil bledow kompilacji, ale klasy nie powstaly - "
+							+ "przyczyna lezy poza kompilacja (konfiguracja / zaleznosci / Loom).")
+				}
+				return
+			}
+
+			String summary = "javac: ${blocks.size()} bledow kompilacji (exit=${exitCode})"
+			println summary
+
+			int perAnnotation = 9000
+			List<String> chunks = []
+			StringBuilder sb = new StringBuilder()
+			for (List<String> block : blocks) {
+				String text = block.join('\n') + '\n'
+				if (sb.length() > 0 && sb.length() + text.length() > perAnnotation) {
+					chunks << sb.toString()
+					sb.setLength(0)
+				}
+				sb.append(text)
+			}
+			if (sb.length() > 0) {
+				chunks << sb.toString()
+			}
+
+			int emitted = 0
+			chunks.eachWithIndex { String chunk, int index ->
+				if (emitted >= 9) {
+					return
+				}
+				announce("${summary} [${index + 1}/${chunks.size()}]\n${chunk}")
+				emitted++
+			}
+			if (chunks.size() > emitted) {
+				println "::notice::Pozostale bledy (${chunks.size() - emitted} paczek) tylko w logu kroku."
+			}
+		} catch (Throwable t) {
+			announce("Diagnostyka kompilacji nie powiodla sie: ${t.class.simpleName}: ${t.message}")
+		}
+	}
+}
+
+// Finalizer uruchamia sie takze wtedy, gdy finalizowane zadanie zawiedzie.
+tasks.named('compileJava') { finalizedBy 'reportCompileErrors' }
+tasks.named('build') { finalizedBy 'reportCompileErrors' }
