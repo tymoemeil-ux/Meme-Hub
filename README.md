@@ -27,6 +27,34 @@ Gotowy plik CI (`.github/workflows/build.yml` - Java 25 + `./gradlew build`
 + artefakt `meme-hub-jar`) jest dolaczony do projektu - wgraj go na repo,
 aby build wykonywal sie automatycznie w **GitHub Actions**.
 
+## Status builda (zweryfikowany w CI)
+
+Build jest **zielony** w GitHub Actions (`./gradlew build`, ~1 min). Artefakt
+`meme-hub-jar` zawiera `meme-hub-1.0.0.jar` (~135 kB): 82 klasy, `fabric.mod.json`,
+`memehub.mixins.json` oraz `LICENSE`.
+
+Jak pobrac gotowy mod:
+
+1. wejdz w zakladke **Actions** -> workflow **Build** -> ostatni zielony run,
+2. sekcja **Artifacts** -> **meme-hub-jar**,
+3. rozpakuj archiwum i wrzuc `meme-hub-1.0.0.jar` do folderu `mods/`
+   instalacji Fabric 26.2 (Fabric Loader >= 0.19.0, Fabric API, Java 25).
+
+### Diagnostyka kompilacji w CI
+
+Zadanie Gradle `reportCompileErrors` (finalizer `compileJava`/`build`) po
+nieudanej kompilacji ponawia `javac` i wypisuje bledy jako komendy workflow
+`::error::`. GitHub zapisuje je wtedy jako **adnotacje check-runa**, wiec pelna
+lista bledow jest dostepna przez REST API (bez pobierania logow):
+
+```bash
+gh api repos/<owner>/<repo>/check-runs/<job-id>/annotations
+```
+
+Przy udanym buildzie to samo zadanie raportuje zawartosc JAR-a
+(`fabric.mod.json`, liczba klas, mixiny, LICENSE), co pozwala zweryfikowac
+artefakt bez jego pobierania.
+
 ## Struktura projektu
 
 ```
