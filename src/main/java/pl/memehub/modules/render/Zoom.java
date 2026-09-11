@@ -22,8 +22,10 @@ public final class Zoom extends Module {
 	protected void onEnable() {
 		var mc = mc();
 		if (mc.options != null) {
-			oldFov = mc.options.fov().get();
-			mc.options.fov().set((int) fov.get());
+				oldFov = mc.options.fov().get();
+				// fov() to OptionInstance<Integer>; get() zwraca Double (Setting<Double>),
+				// wiec konwertujemy jawnie przez intValue() (- nie da sie rzutowac Double -> int).
+				mc.options.fov().set(fov.get().intValue());
 		}
 	}
 
