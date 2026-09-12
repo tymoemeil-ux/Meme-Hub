@@ -2,6 +2,7 @@ package pl.memehub.modules.utility;
 
 import net.minecraft.client.Minecraft;
 import pl.memehub.core.Category;
+import pl.memehub.core.Keybinds;
 import pl.memehub.core.Module;
 import pl.memehub.core.settings.NumberSetting;
 import pl.memehub.gui.ClickGuiScreen;
@@ -17,11 +18,18 @@ public final class ClickGuiModule extends Module {
 
 	public ClickGuiModule() {
 		super("ClickGUI", "Graficzny panel zarzadzania modulami", Category.UTILITY);
-		// 344 = GLFW_KEY_RIGHT_SHIFT. UWAGA: 340 to GLFW_KEY_LEFT_SHIFT, czyli
-		// domyslny klawisz skradania sie w Minecrafcie - wczejsniej byl tu 340,
-		// wiec panel otwieral sie przy kazdym skradaniu.
-		this.key = 344; // GLFW_KEY_RIGHT_SHIFT
+		// Keybind obsluguje NATYWNY KeyMapping Minecrafta (Keybinds.OPEN_GUI, domyslnie
+		// prawy Shift) rejestrowany przez Fabric. key = 0, zeby wlasne odpytywanie
+		// klawiszy w ModuleManager nie otwieralo panelu drugi raz - drugi toggle
+		// natychmiast by go zamknal.
+		this.key = 0;
 		addSetting(panelWidth);
+	}
+
+	/** Nazwa klawisza z natywnego keybindu (widoczna tez w Opcje -> Sterowanie). */
+	@Override
+	public String keyName() {
+		return Keybinds.openGuiKeyName();
 	}
 
 	@Override
