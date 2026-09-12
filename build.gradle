@@ -282,14 +282,14 @@ tasks.register('verifyMixinTargets') {
 			println "::${level}::" + msg.replace('%', '%25').replace('\n', '%0A').replace('\r', '')
 		}
 		try {
-			File mixinConfig = new File(projectDir, 'src/main/resources/memehub.mixins.json')
+			def mixinConfig = new File(projectDir, 'src/main/resources/memehub.mixins.json')
 			if (!mixinConfig.exists()) {
 				announce('warning', 'verifyMixinTargets: brak src/main/resources/memehub.mixins.json.')
 				return
 			}
 			def json = new groovy.json.JsonSlurper().parse(mixinConfig)
 			String pkg = (json.package ?: '').toString()
-			List<String> mixinNames = []
+			def mixinNames = []
 			['mixins', 'client', 'server'].each { String key ->
 				def value = json[key]
 				if (value instanceof List) {
@@ -305,13 +305,13 @@ tasks.register('verifyMixinTargets') {
 				it.languageVersion = JavaLanguageVersion.of(25)
 			}.get().metadata.installationPath.asFile
 			boolean isWin = System.getProperty('os.name').toLowerCase().contains('win')
-			File javap = new File(jdkHome, isWin ? 'bin/javap.exe' : 'bin/javap')
+			def javap = new File(jdkHome, isWin ? 'bin/javap.exe' : 'bin/javap')
 			if (!javap.exists()) {
 				announce('warning', "verifyMixinTargets: brak javap (${javap}) - pomijam.")
 				return
 			}
 
-			List<File> classpathFiles = sourceSets.main.compileClasspath.files.findAll { it.exists() }
+			def classpathFiles = new ArrayList(sourceSets.main.compileClasspath.files.findAll { it.exists() })
 
 			// Konwersja nazwy typu z kodu na deskryptor JVM.
 			def toDesc = { String typeName, Map<String, String> imports ->
@@ -339,7 +339,7 @@ tasks.register('verifyMixinTargets') {
 			// Rozbicie deskryptora "(AB;C)R" na liste deskryptorow argumentow.
 			def parseDescArgs = { String desc ->
 				String argsPart = desc.substring(1, desc.indexOf(')'))
-				List<String> out = []
+				def out = []
 				int i = 0
 				while (i < argsPart.length()) {
 					int start = i
@@ -361,7 +361,7 @@ tasks.register('verifyMixinTargets') {
 			// Znalezienie JAR-a/katalogu zawierajacego klase.
 			def locate = { String fqcn ->
 				String entryName = fqcn.replace('.', '/') + '.class'
-				for (File f : classpathFiles) {
+				for (def f : classpathFiles) {
 					if (f.isDirectory()) {
 						if (new File(f, entryName).exists()) {
 							return f
@@ -387,13 +387,16 @@ tasks.register('verifyMixinTargets') {
 				def proc = [javap.absolutePath, '-p', '-s', '-classpath', container.absolutePath, fqcn].execute()
 				proc.waitForProcessOutput(out, err)
 				proc.waitFor()
-				Map<String, Set<String>> result = [:]
-				String pendingName = null
+				def result = [:]
+				def pendingName = null
 				out.toString().eachLine { String line ->
 					String t = line.trim()
 					if (t.startsWith('descriptor:')) {
 						if (pendingName != null) {
-							result.computeIfAbsent(pendingName, { k -> new LinkedHashSet<String>() }).add(t.substring(11).trim())
+							if (!result.containsKey(pendingName)) {
+								result[pendingName] = new LinkedHashSet()
+							}
+							result[pendingName].add(t.substring(11).trim())
 						}
 					} else {
 						def m = (t =~ /([\w$]+)\s*\(/)
@@ -406,7 +409,7 @@ tasks.register('verifyMixinTargets') {
 			// Parsowanie pliku mixina: importy, klasa docelowa, cele, handler.
 			def parseMixin = { File src ->
 				String text = src.text
-				Map<String, String> imports = [:]
+				def imports = [:]
 				(text =~ /(?m)^\s*import\s+([\w.]+)\s*;/).each { m ->
 					String fq = m[1]
 					imports[fq.substring(fq.lastIndexOf('.') + 1)] = fq
@@ -417,7 +420,7 @@ tasks.register('verifyMixinTargets') {
 					String simple = mm.group(1)
 					target = imports.containsKey(simple) ? imports[simple] : (simple.contains('.') ? simple : null)
 				}
-				List<Map> found = []
+				def found = []
 				['Inject', 'ModifyVariable', 'Redirect', 'ModifyArg', 'ModifyArgs', 'ModifyConstant'].each { String anno ->
 					int idx = 0
 					while ((idx = text.indexOf('@' + anno + '(', idx)) >= 0) {
@@ -434,7 +437,7 @@ tasks.register('verifyMixinTargets') {
 							i++
 						}
 						String body = text.substring(start, Math.max(start, i - 1))
-						List<String> methods = []
+						def methods = []
 						def dm = (body =~ /method\s*=\s*\{([^}]*)\}/)
 						if (dm.find()) {
 							(dm.group(1) =~ /"([^"]+)"/).each { q -> methods << q[1] }
@@ -458,12 +461,12 @@ tasks.register('verifyMixinTargets') {
 				return [target: target, imports: imports, targets: found]
 			}
 
-			int errors = 0
-			int checked = 0
-			Map<String, Map<String, Set<String>>> cache = [:]
+			def errors = 0
+			def checked = 0
+			def cache = [:]
 			for (String name : mixinNames) {
-				String rel = 'src/main/java/' + pkg.replace('.', '/') + '/' + name + '.java'
-				File src = new File(projectDir, rel)
+				def rel = 'src/main/java/' + pkg.replace('.', '/') + '/' + name + '.java'
+				def src = new File(projectDir, rel)
 				if (!src.exists()) {
 					announce('error', "verifyMixinTargets: brak pliku zrodlowego mixina: ${rel}")
 					errors++
@@ -474,9 +477,9 @@ tasks.register('verifyMixinTargets') {
 					announce('warning', "verifyMixinTargets: ${name} - nie odczytano klasy docelowej z @Mixin.")
 					continue
 				}
-				Map<String, Set<String>> declared = cache[parsed.target]
+				def declared = cache[parsed.target]
 				if (declared == null) {
-					File container = locate(parsed.target)
+					def container = locate(parsed.target)
 					if (container == null) {
 						announce('error', "verifyMixinTargets: ${name} - klasa docelowa ${parsed.target} nie wystepuje w compileClasspath.")
 						errors++
@@ -487,12 +490,12 @@ tasks.register('verifyMixinTargets') {
 					println "verifyMixinTargets: ${parsed.target} <- ${container.name} (${declared.size()} metod)"
 				}
 				parsed.targets.each { Map t ->
-					((List<String>) t.methods).each { String spec ->
+					t.methods.each { spec ->
 						checked++
 						int paren = spec.indexOf('(')
 						String mName = paren >= 0 ? spec.substring(0, paren) : spec
 						String mDesc = paren >= 0 ? spec.substring(paren) : null
-						Set<String> known = declared[mName]
+								def known = declared[mName]
 						if (known == null || known.isEmpty()) {
 							announce('error', "verifyMixinTargets: ${name} -> ${spec}: metoda '${mName}' NIE ISTNIEJE w ${parsed.target}. Mixin przewroci gre przy starcie.")
 							errors++
@@ -504,21 +507,21 @@ tasks.register('verifyMixinTargets') {
 							return
 						}
 						if (t.anno == 'Inject' && mDesc != null && t.handlerParams != null) {
-							List<String> argDescs = parseDescArgs(mDesc)
-							List<String> params = t.handlerParams.split(',').collect { it.trim() }.findAll { it.length() > 0 }
+							def argDescs = parseDescArgs(mDesc)
+							def params = t.handlerParams.split(',').collect { it.trim() }.findAll { it.length() > 0 }
 							if (!params.isEmpty()) {
 								def typeOf = { String p ->
 									int sp = p.lastIndexOf(' ')
 									return sp > 0 ? p.substring(0, sp).trim() : p.trim()
 								}
-								String lastType = typeOf(params[-1])
+								def lastType = typeOf(params[-1])
 								boolean hasCi = lastType.contains('CallbackInfo')
 								int declaredArgs = params.size() - (hasCi ? 1 : 0)
 								if (declaredArgs > argDescs.size()) {
 									announce('warning', "verifyMixinTargets: ${name} -> ${spec}: handler ma ${declaredArgs} argumentow, cel tylko ${argDescs.size()}.")
 								} else {
 									for (int k = 0; k < declaredArgs; k++) {
-										String want = toDesc(typeOf(params[k]), (Map<String, String>) parsed.imports)
+										def want = toDesc(typeOf(params[k]), parsed.imports)
 										if (want != argDescs[k]) {
 											announce('warning', "verifyMixinTargets: ${name} -> ${spec}: argument ${k} handlera to ${want}, cel oczekuje ${argDescs[k]}.")
 										}
@@ -531,7 +534,11 @@ tasks.register('verifyMixinTargets') {
 			}
 			announce('notice', "verifyMixinTargets: sprawdzono ${checked} celow w ${mixinNames.size()} mixinach; bledy: ${errors}.")
 		} catch (Throwable t) {
-			announce('warning', "verifyMixinTargets: weryfikacja nie powiodla sie: ${t.class.simpleName}: ${t.message}")
+			String m = (t.message ?: 'bez komunikatu').replaceAll(/\s+/, ' ')
+			if (m.length() > 500) {
+				m = m.substring(0, 250) + ' ...[uciety]... ' + m.substring(m.length() - 200)
+			}
+			announce('warning', "verifyMixinTargets: weryfikacja nie powiodla sie: ${t.class.name}: ${m}")
 		}
 	}
 }
