@@ -64,7 +64,7 @@ public final class Config {
 			if (entry == null) {
 				continue;
 			}
-			module.key = entry.get("key").getAsInt();
+			module.key = migrateKey(module.name(), entry.get("key").getAsInt());
 			if (entry.get("enabled").getAsBoolean()) {
 				module.setEnabled(true);
 			}
@@ -76,6 +76,21 @@ public final class Config {
 				applySetting(setting, settings.get(setting.name()));
 			}
 		}
+	}
+
+	/**
+	 * Poprawia keybindy zapisane przez starsze wersje moda.
+	 *
+	 * <p>ClickGUI mial domyslnie klawisz 340 ({@code GLFW_KEY_LEFT_SHIFT}) z blednym
+	 * komentarzem, ze to prawy Shift. 340 to domyslny klawisz skradania sie, wiec
+	 * panel otwieral sie przy kazdym skradaniu. Zapisany 340 podmieniamy na 344
+	 * ({@code GLFW_KEY_RIGHT_SHIFT}); kazda inna wartosc to swiadomy wybor gracza.
+	 */
+	private static int migrateKey(String moduleName, int savedKey) {
+		if ("ClickGUI".equals(moduleName) && savedKey == 340) {
+			return 344;
+		}
+		return savedKey;
 	}
 
 	private void applySetting(Setting<?> setting, JsonElement element) {

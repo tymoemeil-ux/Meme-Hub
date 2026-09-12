@@ -17,7 +17,10 @@ public final class ClickGuiModule extends Module {
 
 	public ClickGuiModule() {
 		super("ClickGUI", "Graficzny panel zarzadzania modulami", Category.UTILITY);
-		this.key = 340; // GLFW_KEY_RIGHT_SHIFT
+		// 344 = GLFW_KEY_RIGHT_SHIFT. UWAGA: 340 to GLFW_KEY_LEFT_SHIFT, czyli
+		// domyslny klawisz skradania sie w Minecrafcie - wczejsniej byl tu 340,
+		// wiec panel otwieral sie przy kazdym skradaniu.
+		this.key = 344; // GLFW_KEY_RIGHT_SHIFT
 		addSetting(panelWidth);
 	}
 
