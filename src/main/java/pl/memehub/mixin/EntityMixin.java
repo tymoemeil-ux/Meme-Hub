@@ -43,8 +43,12 @@ public abstract class EntityMixin {
 		memehub$modifiedMovement = event.modifiedMovement();
 	}
 
+	// ordinal indeksuje zmienne OSOBNO DLA KAZDEGO TYPU (LocalVariableDiscriminator.
+	// initOrdinals), a argsOnly=true ogranicza liste do argumentow. move() ma dokladnie
+	// JEDEN argument typu Vec3, wiec jego ordinal to 0 - wczesniej bylo 1 i mixin nie
+	// znajdowal celu ("failed injection check, (0/1) succeeded. Scanned 0 target(s)").
 	@ModifyVariable(method = "move(Lnet/minecraft/world/entity/MoverType;Lnet/minecraft/world/phys/Vec3;)V",
-			at = @At("HEAD"), argsOnly = true, ordinal = 1)
+			at = @At("HEAD"), argsOnly = true, ordinal = 0)
 	private Vec3 memehub$applyMove(Vec3 movement) {
 		Vec3 modified = memehub$modifiedMovement;
 		memehub$modifiedMovement = null;
