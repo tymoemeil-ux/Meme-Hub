@@ -1,0 +1,547 @@
+plugins {
+	id 'java'
+	// Loom 1.17 dla Minecraft 26.2 (wersja nieobfuskowana - plugin NIE remapuje Minecrafta ani modow).
+	// Uwaga: dla wersji 26.1+ uzywamy pluginu "net.fabricmc.fabric-loom", a NIE "fabric-loom-remap".
+	// Loom 1.17 jest dystrybuowany jako 1.17-SNAPSHOT (patrz gradle.properties / fabric-example-mod).
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	// Loom sam dodaje niezedne repozytoria (Minecraft, Fabric). Tutaj mozna dodac wlasne.
+}
+
+dependencies {
+	// Minecraft 26.2 jest nieobfuskowany, wiec zamiast "modImplementation" uzywamy zwyklego "implementation".
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+
+processResources {
+	filesMatching('fabric.mod.json') {
+		expand project.properties
+	}
+}
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+	withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+// Znacznik dla diagnostyki: istnieje tylko wtedy, gdy kompilacja sie powiodla.
+tasks.named('compileJava') {
+	def marker = layout.buildDirectory.file('compile-ok.marker')
+	doFirst {
+		marker.get().asFile.delete()
+	}
+	doLast {
+		marker.get().asFile.text = 'ok'
+	}
+}
+
+// Zamiast "remapJar" (nie istnieje juz dla wersji nieobfuskowanych) uzywamy standardowego zadania "jar".
+jar {
+	from('LICENSE') {
+		rename { "${it}_${project.base.archivesName.get()}" }
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DIAGNOSTYKA KOMPILACJI -> adnotacje GitHub Actions.
+//
+// CI buduje mod zdalnie (sandbox deweloperski nie ma dostepu do Maven/Mojang),
+// a surowe logi Actions nie sa dostepne przez API. Dlatego po nieudanym buildzie
+// ponawiamy kompilacje javac i wypisujemy bledy jako komendy workflow
+// "::error::", ktore GitHub zapisuje jako adnotacje check-runa - czytelne
+// przez REST API (repos/.../check-runs/{id}/annotations).
+// ---------------------------------------------------------------------------
+def diagnosticsEmitted = false
+
+tasks.register('reportCompileErrors') {
+	group = 'verification'
+	description = 'Ponawia javac i raportuje bledy kompilacji jako adnotacje GitHub Actions.'
+
+	doLast {
+		if (diagnosticsEmitted) {
+			return
+		}
+		diagnosticsEmitted = true
+
+		def announce = { String message ->
+			def encoded = message.replace('%', '%25').replace('\r', '').replace('\n', '%0A')
+			println "::error::${encoded}"
+		}
+
+		File buildDirFile = layout.buildDirectory.get().asFile
+		// Znacznik zapisywany tylko przy UDANEJ kompilacji (patrz doLast nizej).
+		boolean compiledOk = new File(buildDirFile, 'compile-ok.marker').exists()
+
+		if (compiledOk) {
+			println "::notice::Kompilacja zakonczona sukcesem - diagnostyka bledow pominieta."
+			// Weryfikacja zawartosci zbudowanego JAR-a (sandbox nie moze go pobrac z CI,
+			// wiec raportujemy strukture artefaktu przez adnotacje).
+			try {
+				File libsDir = new File(buildDirFile, 'libs')
+				def jars = fileTree(libsDir) { include '*.jar' }.files.sort { it.name }
+				if (jars.isEmpty()) {
+					announce("Kompilacja OK, ale w build/libs nie ma zadnego JAR-a.")
+					return
+				}
+						jars.each { File jarFile ->
+					boolean isSourcesJar = jarFile.name.contains('-sources')
+					def zip = new java.util.zip.ZipFile(jarFile)
+					try {
+						def names = zip.entries().collect { it.name }
+						def classes = names.findAll { it.endsWith('.class') }
+						boolean hasModJson = names.contains('fabric.mod.json')
+						boolean hasMixins = names.contains('memehub.mixins.json')
+						def license = names.findAll { it.startsWith('LICENSE') }
+						println("::notice::JAR ${jarFile.name} (${jarFile.length()} B): "
+								+ "${names.size()} wpisow, ${classes.size()} klas; "
+								+ "fabric.mod.json=${hasModJson}, mixins=${hasMixins}, LICENSE=${license}")
+						if (hasModJson) {
+							def entry = zip.getEntry('fabric.mod.json')
+							def text = zip.getInputStream(entry).getText('UTF-8')
+							if (text.length() > 1500) {
+								text = text.substring(0, 1500) + '...'
+							}
+							// W jednej linii - adnotacje nie zachowuja wieloliniowych tresci.
+							println("::notice::fabric.mod.json: " + text.replaceAll(/[\r\n]+/, ' | '))
+						}
+						def missing = []
+						if (!hasModJson) {
+							missing << 'fabric.mod.json'
+						}
+						if (!hasMixins && !isSourcesJar) {
+							missing << 'memehub.mixins.json'
+						}
+						if (!isSourcesJar && classes.count { it.startsWith('pl/memehub/') } < 50) {
+							missing << "klasy pl/memehub (jest ${classes.count { it.startsWith('pl/memehub/') }})"
+						}
+						if (!missing.isEmpty()) {
+							announce("JAR ${jarFile.name}: podejrzanie brakuje: ${missing}")
+						}
+					} finally {
+						zip.close()
+					}
+				}
+			} catch (Throwable t) {
+				announce("Nie udalo sie sprawdzic zawartosci JAR: ${t.class.simpleName}: ${t.message}")
+			}
+			return
+		}
+
+		try {
+			def jdkHome = javaToolchains.launcherFor {
+				it.languageVersion = JavaLanguageVersion.of(25)
+			}.get().metadata.installationPath.asFile
+			File javac = new File(jdkHome, 'bin/javac')
+			if (!javac.exists()) {
+				announce("Nie znaleziono javac w ${javac} - diagnostyka niemozliwa.")
+				return
+			}
+
+			def sourceDirs = sourceSets.main.java.srcDirs.findAll { it.exists() }
+			def sources = sourceDirs.collectMany { dir ->
+				fileTree(dir) { include '**/*.java' }.files
+			}.collect { it.absolutePath }.sort()
+			if (sources.isEmpty()) {
+				announce("Brak plikow .java w source setach - nic do sprawdzenia.")
+				return
+			}
+
+			String classpath = sourceSets.main.compileClasspath.asPath
+			File classpathFile = new File(buildDirFile, 'diagnostics-classpath.txt')
+			classpathFile.parentFile.mkdirs()
+			classpathFile.text = classpath
+
+			File outDir = new File(buildDirFile, 'diagnostics-classes')
+			outDir.mkdirs()
+
+			List<String> cmd = [
+					javac.absolutePath,
+					'-proc:none',
+					'-nowarn',
+					'-Xmaxerrs', '2000',
+					'-encoding', 'UTF-8',
+					'--release', '25',
+					'-d', outDir.absolutePath,
+					'-classpath', classpath
+			]
+			cmd.addAll(sources)
+
+			ProcessBuilder pb = new ProcessBuilder(cmd)
+			pb.redirectErrorStream(true)
+			pb.directory(projectDir)
+			Process proc = pb.start()
+			String output = proc.inputStream.getText('UTF-8')
+			int exitCode = proc.waitFor()
+
+			File logFile = new File(buildDirFile, 'compile-diagnostics.txt')
+			logFile.text = output
+			println "----- javac (exit=${exitCode}) -----"
+			println output
+			println "----- koniec javac -----"
+
+			// Grupowanie: linia "Plik.java:NN: error: ..." rozpoczyna blok bledu.
+			def errorLine = ~/^.*\.java:\d+: error:.*$/
+			List<List<String>> blocks = []
+			List<String> current = null
+			output.eachLine { String line ->
+				if (errorLine.matcher(line).matches()) {
+					current = [line]
+					blocks << current
+				} else if (current != null && !line.trim().isEmpty()) {
+					if (current.size() < 6) {
+						current << line
+					}
+				} else if (current != null && line.trim().isEmpty()) {
+					current = null
+				}
+			}
+
+			if (blocks.isEmpty()) {
+				if (compiledOk) {
+					println "::notice::javac: kompilacja bez bledow."
+				} else {
+					announce("javac nie zglosil bledow kompilacji, ale klasy nie powstaly - "
+							+ "przyczyna lezy poza kompilacja (konfiguracja / zaleznosci / Loom).")
+				}
+				return
+			}
+
+			String summary = "javac: ${blocks.size()} bledow kompilacji (exit=${exitCode})"
+			println summary
+
+			int perAnnotation = 9000
+			List<String> chunks = []
+			StringBuilder sb = new StringBuilder()
+			for (List<String> block : blocks) {
+				String text = block.join('\n') + '\n'
+				if (sb.length() > 0 && sb.length() + text.length() > perAnnotation) {
+					chunks << sb.toString()
+					sb.setLength(0)
+				}
+				sb.append(text)
+			}
+			if (sb.length() > 0) {
+				chunks << sb.toString()
+			}
+
+			int emitted = 0
+			chunks.eachWithIndex { String chunk, int index ->
+				if (emitted >= 9) {
+					return
+				}
+				announce("${summary} [${index + 1}/${chunks.size()}]\n${chunk}")
+				emitted++
+			}
+			if (chunks.size() > emitted) {
+				println "::notice::Pozostale bledy (${chunks.size() - emitted} paczek) tylko w logu kroku."
+			}
+		} catch (Throwable t) {
+			announce("Diagnostyka kompilacji nie powiodla sie: ${t.class.simpleName}: ${t.message}")
+		}
+	}
+}
+
+// Finalizer uruchamia sie takze wtedy, gdy finalizowane zadanie zawiedzie.
+tasks.named('compileJava') { finalizedBy 'reportCompileErrors' }
+tasks.named('build') { finalizedBy 'reportCompileErrors' }
+
+// ---------------------------------------------------------------------------
+// Weryfikacja celow mixinow
+// ---------------------------------------------------------------------------
+// Kompilator NIE sprawdza celow mixinow: bledna sygnatura (np. zmieniona w
+// aktualizacji Minecrafta) wychodzi dopiero przy starcie gry jako
+// "Mixin transformation of ... failed" albo "target was not found" i cala gra
+// sie nie uruchamia. To zadanie czyta cele z plikow mixinow i porownuje je
+// z prawdziwymi metodami Minecrafta (javap -s nad JAR-em z compileClasspath),
+// wiec problem widac juz w CI. Zadanie nigdy nie przerywa builda - raportuje
+// przez adnotacje workflow.
+tasks.register('verifyMixinTargets') {
+	group = 'verification'
+	description = 'Sprawdza, czy cele @Inject/@ModifyVariable istnieja w Minecraft (javap).'
+
+	doLast {
+		def announce = { String level, String msg ->
+			println "::${level}::" + msg.replace('%', '%25').replace('\n', '%0A').replace('\r', '')
+		}
+		try {
+			def mixinConfig = new File(projectDir, 'src/main/resources/memehub.mixins.json')
+			if (!mixinConfig.exists()) {
+				announce('warning', 'verifyMixinTargets: brak src/main/resources/memehub.mixins.json.')
+				return
+			}
+			def json = new groovy.json.JsonSlurper().parse(mixinConfig)
+			String pkg = (json.package ?: '').toString()
+			def mixinNames = []
+			['mixins', 'client', 'server'].each { String key ->
+				def value = json[key]
+				if (value instanceof List) {
+					mixinNames.addAll(value.collect { it.toString() })
+				}
+			}
+			if (mixinNames.isEmpty()) {
+				announce('warning', 'verifyMixinTargets: memehub.mixins.json nie deklaruje mixinow.')
+				return
+			}
+
+			def jdkHome = javaToolchains.launcherFor {
+				it.languageVersion = JavaLanguageVersion.of(25)
+			}.get().metadata.installationPath.asFile
+			boolean isWin = System.getProperty('os.name').toLowerCase().contains('win')
+			def javap = new File(jdkHome, isWin ? 'bin/javap.exe' : 'bin/javap')
+			if (!javap.exists()) {
+				announce('warning', "verifyMixinTargets: brak javap (${javap}) - pomijam.")
+				return
+			}
+
+			def classpathFiles = new ArrayList(sourceSets.main.compileClasspath.files.findAll { it.exists() })
+
+			// Konwersja nazwy typu z kodu na deskryptor JVM.
+			def toDesc = { String typeName, Map<String, String> imports ->
+				// Packet<?> -> Packet; typy generyczne w deskryptorach JVM nie istnieja.
+				String t = typeName.replaceAll(/<[^<>]*>/, '').replaceAll(/<[^<>]*>/, '').trim()
+				int dims = 0
+				while (t.endsWith('[]')) {
+					dims++
+					t = t.substring(0, t.length() - 2).trim()
+				}
+				switch (t) {
+					case 'void': return 'V'
+					case 'boolean': return 'Z'
+					case 'byte': return 'B'
+					case 'char': return 'C'
+					case 'short': return 'S'
+					case 'int': return 'I'
+					case 'long': return 'J'
+					case 'float': return 'F'
+					case 'double': return 'D'
+				}
+				String fq = imports.containsKey(t) ? imports[t] : t
+				return ('[' * dims) + 'L' + fq.replace('.', '/') + ';'
+			}
+
+			// Rozbicie deskryptora "(AB;C)R" na liste deskryptorow argumentow.
+			def parseDescArgs = { String desc ->
+				String argsPart = desc.substring(1, desc.indexOf(')'))
+				def out = []
+				int i = 0
+				while (i < argsPart.length()) {
+					int start = i
+					while (argsPart.charAt(i) == ('[' as char)) {
+						i++
+					}
+					if (argsPart.charAt(i) == ('L' as char)) {
+						int end = argsPart.indexOf(';', i)
+						out << argsPart.substring(start, end + 1)
+						i = end + 1
+					} else {
+						out << argsPart.substring(start, i + 1)
+						i++
+					}
+				}
+				return out
+			}
+
+			// Znalezienie JAR-a/katalogu zawierajacego klase.
+			def locate = { String fqcn ->
+				String entryName = fqcn.replace('.', '/') + '.class'
+				for (def f : classpathFiles) {
+					if (f.isDirectory()) {
+						if (new File(f, entryName).exists()) {
+							return f
+						}
+					} else if (f.name.endsWith('.jar')) {
+						def zip = new java.util.zip.ZipFile(f)
+						try {
+							if (zip.getEntry(entryName) != null) {
+								return f
+							}
+						} finally {
+							zip.close()
+						}
+					}
+				}
+				return null
+			}
+
+			// Lista zadeklarowanych metod klasy (nazwa -> zestaw deskryptorow).
+			def javapMethods = { File container, String fqcn ->
+				def out = new StringBuilder()
+				def err = new StringBuilder()
+				def proc = [javap.absolutePath, '-p', '-s', '-classpath', container.absolutePath, fqcn].execute()
+				proc.waitForProcessOutput(out, err)
+				proc.waitFor()
+				def result = [:]
+				def pendingName = null
+				out.toString().eachLine { String line ->
+					String t = line.trim()
+					if (t.startsWith('descriptor:')) {
+						if (pendingName != null) {
+							if (!result.containsKey(pendingName)) {
+								result[pendingName] = new LinkedHashSet()
+							}
+							result[pendingName].add(t.substring(11).trim())
+						}
+					} else {
+						def m = (t =~ /([\w$]+)\s*\(/)
+						pendingName = m.find() ? m.group(1) : null
+					}
+				}
+				return result
+			}
+
+			// Parsowanie pliku mixina: importy, klasa docelowa, cele, handler.
+			def parseMixin = { File src ->
+				String text = src.text
+				def imports = [:]
+				(text =~ /(?m)^\s*import\s+([\w.]+)\s*;/).each { m ->
+					String fq = m[1]
+					imports[fq.substring(fq.lastIndexOf('.') + 1)] = fq
+				}
+				String target = null
+				def mm = (text =~ /@Mixin\s*\(\s*(?:value\s*=\s*)?\{?\s*([\w.]+)\.class/)
+				if (mm.find()) {
+					String simple = mm.group(1)
+					target = imports.containsKey(simple) ? imports[simple] : (simple.contains('.') ? simple : null)
+				}
+				def found = []
+				['Inject', 'ModifyVariable', 'Redirect', 'ModifyArg', 'ModifyArgs', 'ModifyConstant'].each { String anno ->
+					int idx = 0
+					while ((idx = text.indexOf('@' + anno + '(', idx)) >= 0) {
+						int start = idx + anno.length() + 2
+						int depth = 1
+						int i = start
+						while (i < text.length() && depth > 0) {
+							char c = text.charAt(i)
+							if (c == ('(' as char)) {
+								depth++
+							} else if (c == (')' as char)) {
+								depth--
+							}
+							i++
+						}
+						String body = text.substring(start, Math.max(start, i - 1))
+						def methods = []
+						def dm = (body =~ /method\s*=\s*\{([^}]*)\}/)
+						if (dm.find()) {
+							(dm.group(1) =~ /"([^"]+)"/).each { q -> methods << q[1] }
+						} else {
+							def ds = (body =~ /method\s*=\s*"([^"]+)"/)
+							while (ds.find()) {
+								methods << ds.group(1)
+							}
+						}
+						String handlerParams = null
+						String tail = text.substring(Math.min(i, text.length()))
+						tail = tail.substring(0, Math.min(400, tail.length()))
+						def hm = (tail =~ /(?s)(?:private|public|protected)\s+(?:static\s+)?(?:final\s+)?[\w$<>,.\[\]\s]+?\s+[\w$]+\s*\(([^)]*)\)/)
+						if (hm.find()) {
+							handlerParams = hm.group(1)
+						}
+						found << [anno: anno, methods: methods, handlerParams: handlerParams]
+						idx = Math.max(idx + 1, i)
+					}
+				}
+				return [target: target, imports: imports, targets: found]
+			}
+
+			def errors = 0
+			def checked = 0
+			def cache = [:]
+			for (String name : mixinNames) {
+				def rel = 'src/main/java/' + pkg.replace('.', '/') + '/' + name + '.java'
+				def src = new File(projectDir, rel)
+				if (!src.exists()) {
+					announce('error', "verifyMixinTargets: brak pliku zrodlowego mixina: ${rel}")
+					errors++
+					continue
+				}
+				def parsed = parseMixin(src)
+				if (parsed.target == null) {
+					announce('warning', "verifyMixinTargets: ${name} - nie odczytano klasy docelowej z @Mixin.")
+					continue
+				}
+				def declared = cache[parsed.target]
+				if (declared == null) {
+					def container = locate(parsed.target)
+					if (container == null) {
+						announce('error', "verifyMixinTargets: ${name} - klasa docelowa ${parsed.target} nie wystepuje w compileClasspath.")
+						errors++
+						continue
+					}
+					declared = javapMethods(container, parsed.target)
+					cache[parsed.target] = declared
+					println "verifyMixinTargets: ${parsed.target} <- ${container.name} (${declared.size()} metod)"
+				}
+				parsed.targets.each { Map t ->
+					t.methods.each { spec ->
+						checked++
+						int paren = spec.indexOf('(')
+						String mName = paren >= 0 ? spec.substring(0, paren) : spec
+						String mDesc = paren >= 0 ? spec.substring(paren) : null
+								def known = declared[mName]
+						if (known == null || known.isEmpty()) {
+							announce('error', "verifyMixinTargets: ${name} -> ${spec}: metoda '${mName}' NIE ISTNIEJE w ${parsed.target}. Mixin przewroci gre przy starcie.")
+							errors++
+							return
+						}
+						if (mDesc != null && !known.contains(mDesc)) {
+							announce('error', "verifyMixinTargets: ${name} -> ${spec}: sygnatura nie pasuje. Dostepne: ${known}. Mixin przewroci gre przy starcie.")
+							errors++
+							return
+						}
+						if (t.anno == 'Inject' && mDesc != null && t.handlerParams != null) {
+							def argDescs = parseDescArgs(mDesc)
+							def params = t.handlerParams.split(',').collect { it.trim() }.findAll { it.length() > 0 }
+							if (!params.isEmpty()) {
+								def typeOf = { String p ->
+									int sp = p.lastIndexOf(' ')
+									return sp > 0 ? p.substring(0, sp).trim() : p.trim()
+								}
+								def lastType = typeOf(params[-1])
+								boolean hasCi = lastType.contains('CallbackInfo')
+								int declaredArgs = params.size() - (hasCi ? 1 : 0)
+								if (declaredArgs > argDescs.size()) {
+									announce('warning', "verifyMixinTargets: ${name} -> ${spec}: handler ma ${declaredArgs} argumentow, cel tylko ${argDescs.size()}.")
+								} else {
+									for (int k = 0; k < declaredArgs; k++) {
+										def want = toDesc(typeOf(params[k]), parsed.imports)
+										if (want != argDescs[k]) {
+											announce('warning', "verifyMixinTargets: ${name} -> ${spec}: argument ${k} handlera to ${want}, cel oczekuje ${argDescs[k]}.")
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			announce('notice', "verifyMixinTargets: sprawdzono ${checked} celow w ${mixinNames.size()} mixinach; bledy: ${errors}.")
+		} catch (Throwable t) {
+			String m = (t.message ?: 'bez komunikatu').replaceAll(/\s+/, ' ')
+			if (m.length() > 500) {
+				m = m.substring(0, 250) + ' ...[uciety]... ' + m.substring(m.length() - 200)
+			}
+			announce('warning', "verifyMixinTargets: weryfikacja nie powiodla sie: ${t.class.name}: ${m}")
+		}
+	}
+}
+
+tasks.named('build') { dependsOn 'verifyMixinTargets' }

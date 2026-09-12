@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "pl.memehub.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"MinecraftClientMixin",
+		"ConnectionMixin",
+		"EntityMixin",
+		"MultiPlayerGameModeMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
