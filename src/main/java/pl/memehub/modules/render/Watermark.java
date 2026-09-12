@@ -18,7 +18,7 @@ public final class Watermark extends Module {
 	private final NumberSetting y = new NumberSetting("Y", "Pozycja pionowa (px)", 2.0, 0.0, 100.0, 1.0);
 
 	public Watermark() {
-		super("Watermark", "Rysuje logo Meme Hub na HUD", Category.RENDER);
+		super("Watermark", "Rysuje logo Meme Hub na HUD", Category.RENDER, true);
 		addSetting(y);
 	}
 

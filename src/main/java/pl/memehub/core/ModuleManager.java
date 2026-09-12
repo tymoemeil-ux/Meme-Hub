@@ -6,6 +6,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.world.entity.Entity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import pl.memehub.event.ClientTickEvent;
 import pl.memehub.event.EventBus;
 import pl.memehub.event.Subscribe;
@@ -59,12 +61,17 @@ import java.util.Set;
 public final class ModuleManager {
 	public static final ModuleManager INSTANCE = new ModuleManager();
 
+	private static final Logger LOGGER = LoggerFactory.getLogger("MemeHub/Modules");
+
 	private final List<Module> modules = new ArrayList<>();
 	private final Map<String, Module> byName = new HashMap<>();
 	private final Map<Class<? extends Module>, Module> byClass = new HashMap<>();
 
 	/** Klawisze wcisniete w poprzednim ticku - do wykrywania krawedzi wcisniecia. */
 	private final Set<Integer> lastKeys = new HashSet<>();
+
+	/** Jednorazowy log potwierdzajacy, ze event bus dostaje ticki klienta. */
+	private boolean firstTickLogged = false;
 
 	private boolean initialized = false;
 
@@ -170,6 +177,14 @@ public final class ModuleManager {
 
 	@Subscribe
 	public void onClientTick(ClientTickEvent.Pre event) {
+		if (!firstTickLogged) {
+			firstTickLogged = true;
+			Module clickGui = byName.get("clickgui");
+			LOGGER.info("[MemeHub] tick klienta dziala ({} modulow). Keybind ClickGUI: {} (kod {})",
+					modules.size(),
+					clickGui != null ? clickGui.keyName() : "brak",
+					clickGui != null ? clickGui.key : -1);
+		}
 		handleKeybinds();
 		for (Module module : modules) {
 			if (module.isEnabled()) {
@@ -193,6 +208,8 @@ public final class ModuleManager {
 			boolean down = InputConstants.isKeyDown(window, module.key);
 			current.add(module.key);
 			if (down && !lastKeys.contains(module.key)) {
+				LOGGER.info("[MemeHub] keybind {} (kod {}) -> przelaczam {}",
+						module.keyName(), module.key, module.name());
 				module.toggle();
 			}
 		}

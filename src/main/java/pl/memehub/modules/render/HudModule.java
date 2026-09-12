@@ -39,7 +39,7 @@ public final class HudModule extends Module {
 	private final NumberSetting scale = new NumberSetting("Scale", "Skala HUD (0.5-2.0)", 1.0, 0.5, 2.0, 0.1);
 
 	public HudModule() {
-		super("HUD", "Nakladka HUD: lista modulow, TargetHUD, cooldown ataku", Category.RENDER);
+		super("HUD", "Nakladka HUD: lista modulow, TargetHUD, cooldown ataku", Category.RENDER, true);
 		addSetting(arrayList);
 		addSetting(targetHud);
 		addSetting(cooldownDisplay);

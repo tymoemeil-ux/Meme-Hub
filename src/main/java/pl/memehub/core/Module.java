@@ -38,9 +38,20 @@ public abstract class Module {
 	private final List<Setting<?>> settings = new ArrayList<>();
 
 	protected Module(String name, String description, Category category) {
+		this(name, description, category, false);
+	}
+
+	/**
+	 * @param enabledByDefault modul startuje wlaczony. Bez tego swiezo zainstalowany
+	 *                         klient nie daje zadnego znaku zycia (HUD i Watermark
+	 *                         byly domyslnie wylaczone, wiec ekran wygladal identycznie
+	 *                         jak bez moda).
+	 */
+	protected Module(String name, String description, Category category, boolean enabledByDefault) {
 		this.name = name;
 		this.description = description;
 		this.category = category;
+		this.enabled = enabledByDefault;
 	}
 
 	// ------------------------------------------------------------------
@@ -77,6 +88,9 @@ public abstract class Module {
 
 	public void toggle() {
 		setEnabled(!enabled);
+		// Komunikat na czat - wczesniej sendToggleMessage() nie bylo wywolywane NIGDZIE,
+		// wiec przelaczenie modulu (klawiszem lub w ClickGUI) nie dawalo zadnego sygnału.
+		sendToggleMessage();
 	}
 
 	/** Nazwa keybindu do wyswietlenia (np. "RIGHT SHIFT") lub "NONE". */
