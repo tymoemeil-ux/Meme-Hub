@@ -315,7 +315,8 @@ tasks.register('verifyMixinTargets') {
 
 			// Konwersja nazwy typu z kodu na deskryptor JVM.
 			def toDesc = { String typeName, Map<String, String> imports ->
-				String t = typeName.trim()
+				// Packet<?> -> Packet; typy generyczne w deskryptorach JVM nie istnieja.
+				String t = typeName.replaceAll(/<[^<>]*>/, '').replaceAll(/<[^<>]*>/, '').trim()
 				int dims = 0
 				while (t.endsWith('[]')) {
 					dims++
